@@ -8,7 +8,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const app = join(root, 'prototype', 'app');
 const read = f => readFileSync(join(app, f), 'utf8');
 
-const css = [read('styles.css'), read('stand.css')].map(s => s.trim()).join('\n\n');
+const css = [read('styles.css'), read('stand.css'), read('premium.css')].map(s => s.trim()).join('\n\n');
 const js = ['data.js','ui.js','views1.js','views2.js','views3.js','actions.js','shell.js']
   .map(f => '/* ===== ' + f + ' ===== */\n' + read(f).trim())
   .join('\n\n');

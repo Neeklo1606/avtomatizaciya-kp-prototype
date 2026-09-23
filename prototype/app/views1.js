@@ -35,9 +35,10 @@
       (low.length ? '<div class="card pad rv" style="border-color:var(--bad);margin-bottom:16px">' +
         '<div class="row-t"><span style="color:var(--bad)">' + icon('alertT') + '</span><div class="grow">' +
         '<div class="h3">Низкая уверенность распознавания</div>' +
-        '<div class="small muted" style="margin-top:3px">' + low.length + ' запросов требуют ручной проверки позиций: ' +
-        low.slice(0, 4).map(r => esc(r.client.name)).join(', ') + (low.length > 4 ? ' и другие' : '') + '.</div>' +
-        '<button class="btn sm" style="margin-top:10px" data-act="filterLowConf">' + icon('filter', 'ic-sm') + ' Показать их</button>' +
+        '<div class="small muted" style="margin-top:3px">Требуют ручной проверки позиций: ' + low.length + '</div>' +
+        '<div class="chips" style="margin-top:8px">' + low.slice(0, 4).map(r => '<span class="chip static">' + esc(r.client.name) + '</span>').join('') +
+        (low.length > 4 ? '<span class="chip static">+' + (low.length - 4) + '</span>' : '') + '</div>' +
+        '<button class="btn sm" style="margin-top:12px" data-act="filterLowConf">' + icon('filter', 'ic-sm') + ' Показать их</button>' +
         '</div></div></div>' : '') +
 
       '<div class="col rv" style="gap:16px">' +
@@ -695,7 +696,7 @@
         '<button class="btn" data-act="mergeClients">' + icon('merge', 'ic-sm') + ' Объединить дубли</button>') +
       '<div class="tw rv"><div class="tscroll desk"><table class="tbl" style="min-width:940px"><thead><tr>' +
       '<th>Клиент</th><th>Домен почты</th><th>Запросов</th><th>КП отправлено</th><th>Выиграно</th><th>Сумма заказов</th><th>Последний контакт</th><th class="act"></th>' +
-      '</tr></thead><tbody>' + rows.map(c => '<tr>' +
+      '</tr></thead><tbody>' + rows.map(c => '<tr class="rowclick" data-act="openClient" data-k="' + esc(c.name) + '">' +
         '<td><b>' + esc(c.name) + '</b></td><td class="mono small">' + esc(c.domain) + '</td>' +
         '<td class="num">' + c.req + '</td><td class="num">' + c.sent + '</td><td class="num">' + c.won + '</td>' +
         '<td class="num">' + U.money(c.sum) + '</td><td class="small nowrap">' + U.dt(c.last) + '</td>' +

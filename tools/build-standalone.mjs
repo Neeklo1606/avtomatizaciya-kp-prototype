@@ -9,7 +9,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const app = join(root, 'prototype', 'app');
 const read = f => readFileSync(join(app, f), 'utf8');
 
-const CSS = [read('styles.css'), read('stand.css')];
+const CSS = [read('styles.css'), read('stand.css'), read('premium.css')];
 const JS = ['data.js', 'ui.js', 'views1.js', 'views2.js', 'views3.js', 'actions.js', 'shell.js'];
 
 /* лёгкая безопасная минификация: убираем пустые строки */
