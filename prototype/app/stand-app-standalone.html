@@ -266,7 +266,8 @@ tr.exp>td{border-bottom-color:transparent}
 .gsearch input::-webkit-search-cancel-button{display:none}
 .gsearch:focus-within{border-color:var(--accent);background:var(--surface)}
 .subwrap{padding:12px 14px 14px;background:var(--surface-2);border-left:2px solid var(--accent)}
-.tbl.sub{min-width:520px;background:var(--surface)}
+.tbl.sub{min-width:0;width:100%;background:var(--surface)}
+.tbl.sub td.edit{min-width:88px}
 .tbl.sub th{background:var(--surface-3);font-size:11.5px;text-transform:none}
 .tbl.sub td{font-size:13px}
 .diff{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;font-size:13px}
@@ -1847,8 +1848,10 @@ window.MOCK = (function () {
         '<div class="tscroll"><table class="tbl sub"><thead><tr>' +
           '<th>' + icon('tag','ic-sm') + ' Артикул</th><th>' + icon('file','ic-sm') + ' Наименование</th>' +
           '<th>' + icon('grid','ic-sm') + ' Бренд</th><th>' + icon('hash','ic-sm') + ' Кол-во</th>' +
-          '<th>' + icon('calc','ic-sm') + ' Цена поставщика</th><th>' + icon('percent','ic-sm') + ' Пошлина</th>' +
-          '<th>' + icon('check','ic-sm') + ' Цена клиенту</th><th>' + icon('chart','ic-sm') + ' Сумма</th>' +
+          '<th>' + icon('calc','ic-sm') + ' Цена поставщика</th>' +
+          '<th>' + icon('check','ic-sm') + ' Цена клиенту' +
+          '<span class="tiny muted" title="Пошлина 5% включена в цену клиенту"> +5%</span></th>' +
+          '<th>' + icon('chart','ic-sm') + ' Сумма</th>' +
           '<th class="act"></th></tr></thead><tbody>' +
         r.positions.map(p => {
           const noArt = !p.article, noPr = p.clientPriceRub === undefined;
@@ -1858,7 +1861,6 @@ window.MOCK = (function () {
             '<td class="edit"><input class="cell-in" data-edit="setPosBrand" data-id="' + r.id + '|' + p.id + '" value="' + esc(p.brand || '') + '" aria-label="Бренд"></td>' +
             '<td><input class="cell-in mono" type="number" min="1" data-edit="setPosQty" data-id="' + r.id + '|' + p.id + '" value="' + p.qty + '" aria-label="Количество"></td>' +
             '<td><input class="cell-in mono" type="number" step="0.01" data-edit="setPosPrice" data-id="' + r.id + '|' + p.id + '" value="' + (p.supplierPrice === undefined ? '' : p.supplierPrice) + '" placeholder="—" aria-label="Цена поставщика"></td>' +
-            '<td class="num small">' + (p.dutyPct || 0) + '%</td>' +
             '<td class="num">' + (noPr ? '<span class="badge b-bad">нет цены</span>' : U.money(p.clientPriceRub)) + '</td>' +
             '<td class="num">' + (p.totalRub === undefined ? '—' : U.money(p.totalRub)) + '</td>' +
             '<td class="act"><div class="row" style="gap:3px">' +
@@ -2040,7 +2042,6 @@ window.MOCK = (function () {
               window.MOCK.CATS.map(c => '<option' + (c === p.category ? ' selected' : '') + '>' + c + '</option>').join('') + '</select></td>' +
             '<td><input class="cell-in mono" type="number" step="0.01" data-edit="setPosPrice" data-id="' + r.id + '|' + p.id + '" value="' + (p.supplierPrice === undefined ? '' : p.supplierPrice) + '" placeholder="—" aria-label="' + T.supPrice + '"></td>' +
             '<td class="small nowrap">' + srcLabel(p.priceSource) + '</td>' +
-            '<td class="num small">' + (p.dutyPct || 0) + '%</td>' +
             '<td class="num">' + (noPr ? '<span class="badge b-bad">' + T.needPrice + '</span>' : U.money(p.clientPriceRub)) + '</td>' +
             '<td class="num">' + (p.totalRub === undefined ? '—' : U.money(p.totalRub)) + '</td>' +
             '<td>' + U.confBadge(p.confidence) + '</td>' +

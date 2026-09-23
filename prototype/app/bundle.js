@@ -1253,8 +1253,10 @@ window.MOCK = (function () {
         '<div class="tscroll"><table class="tbl sub"><thead><tr>' +
           '<th>' + icon('tag','ic-sm') + ' Артикул</th><th>' + icon('file','ic-sm') + ' Наименование</th>' +
           '<th>' + icon('grid','ic-sm') + ' Бренд</th><th>' + icon('hash','ic-sm') + ' Кол-во</th>' +
-          '<th>' + icon('calc','ic-sm') + ' Цена поставщика</th><th>' + icon('percent','ic-sm') + ' Пошлина</th>' +
-          '<th>' + icon('check','ic-sm') + ' Цена клиенту</th><th>' + icon('chart','ic-sm') + ' Сумма</th>' +
+          '<th>' + icon('calc','ic-sm') + ' Цена поставщика</th>' +
+          '<th>' + icon('check','ic-sm') + ' Цена клиенту' +
+          '<span class="tiny muted" title="Пошлина 5% включена в цену клиенту"> +5%</span></th>' +
+          '<th>' + icon('chart','ic-sm') + ' Сумма</th>' +
           '<th class="act"></th></tr></thead><tbody>' +
         r.positions.map(p => {
           const noArt = !p.article, noPr = p.clientPriceRub === undefined;
@@ -1264,7 +1266,6 @@ window.MOCK = (function () {
             '<td class="edit"><input class="cell-in" data-edit="setPosBrand" data-id="' + r.id + '|' + p.id + '" value="' + esc(p.brand || '') + '" aria-label="Бренд"></td>' +
             '<td><input class="cell-in mono" type="number" min="1" data-edit="setPosQty" data-id="' + r.id + '|' + p.id + '" value="' + p.qty + '" aria-label="Количество"></td>' +
             '<td><input class="cell-in mono" type="number" step="0.01" data-edit="setPosPrice" data-id="' + r.id + '|' + p.id + '" value="' + (p.supplierPrice === undefined ? '' : p.supplierPrice) + '" placeholder="—" aria-label="Цена поставщика"></td>' +
-            '<td class="num small">' + (p.dutyPct || 0) + '%</td>' +
             '<td class="num">' + (noPr ? '<span class="badge b-bad">нет цены</span>' : U.money(p.clientPriceRub)) + '</td>' +
             '<td class="num">' + (p.totalRub === undefined ? '—' : U.money(p.totalRub)) + '</td>' +
             '<td class="act"><div class="row" style="gap:3px">' +
@@ -1446,7 +1447,6 @@ window.MOCK = (function () {
               window.MOCK.CATS.map(c => '<option' + (c === p.category ? ' selected' : '') + '>' + c + '</option>').join('') + '</select></td>' +
             '<td><input class="cell-in mono" type="number" step="0.01" data-edit="setPosPrice" data-id="' + r.id + '|' + p.id + '" value="' + (p.supplierPrice === undefined ? '' : p.supplierPrice) + '" placeholder="—" aria-label="' + T.supPrice + '"></td>' +
             '<td class="small nowrap">' + srcLabel(p.priceSource) + '</td>' +
-            '<td class="num small">' + (p.dutyPct || 0) + '%</td>' +
             '<td class="num">' + (noPr ? '<span class="badge b-bad">' + T.needPrice + '</span>' : U.money(p.clientPriceRub)) + '</td>' +
             '<td class="num">' + (p.totalRub === undefined ? '—' : U.money(p.totalRub)) + '</td>' +
             '<td>' + U.confBadge(p.confidence) + '</td>' +

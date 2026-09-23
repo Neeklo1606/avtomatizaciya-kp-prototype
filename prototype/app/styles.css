@@ -254,7 +254,8 @@ tr.exp>td{border-bottom-color:transparent}
 .gsearch input::-webkit-search-cancel-button{display:none}
 .gsearch:focus-within{border-color:var(--accent);background:var(--surface)}
 .subwrap{padding:12px 14px 14px;background:var(--surface-2);border-left:2px solid var(--accent)}
-.tbl.sub{min-width:520px;background:var(--surface)}
+.tbl.sub{min-width:0;width:100%;background:var(--surface)}
+.tbl.sub td.edit{min-width:88px}
 .tbl.sub th{background:var(--surface-3);font-size:11.5px;text-transform:none}
 .tbl.sub td{font-size:13px}
 .diff{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;font-size:13px}
