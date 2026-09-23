@@ -162,10 +162,15 @@
     if (f.page > pages) f.page = pages;
     const page = rows.slice((f.page - 1) * f.per, f.page * f.per);
     const selCount = Object.keys(f.sel).filter(k => f.sel[k]).length;
+    const NUMCOL = { positionsCount:1, minConfidence:1, quoteTotalRub:1 };
+    const CICON = {
+      number:'hash', receivedAt:'calendar', client:'users', subject:'mail', positionsCount:'grid',
+      minConfidence:'percent', quoteTotalRub:'calc', status:'activity', assignee:'user', updatedAt:'history'
+    };
     const C = [
       ['number','№'],['receivedAt','Дата'],['client','Клиент'],['subject','Тема'],['positionsCount','Позиций'],
       ['minConfidence','Уверенность'],['quoteTotalRub','Сумма КП'],['status','Статус'],['assignee','Ответственный'],['updatedAt','Обновлено']
-    ].filter(c => f.cols[c[0]]);
+    ].filter(c => f.cols[c[0]]).map(c => [c[0], (CICON[c[0]] ? icon(CICON[c[0]], 'ic-sm') + ' ' : '') + c[1]]);
 
     const afc = activeFilterCount(f);
     return '<div class="content">' +
@@ -210,7 +215,7 @@
 
         '<div class="tscroll desk"><table class="tbl"><thead><tr>' +
           '<th style="width:38px"><input type="checkbox" data-act-change="selectAll" aria-label="Выбрать все" style="accent-color:var(--accent);width:16px;height:16px"' + (page.length && page.every(r => f.sel[r.id]) ? ' checked' : '') + '></th>' +
-          C.map(c => '<th class="sortable' + (f.sort === mapSort(c[0]) ? ' on' : '') + '" data-act="sortBy" data-k="' + mapSort(c[0]) + '">' + c[1] +
+          C.map(c => '<th class="sortable' + (NUMCOL[c[0]] ? ' num' : '') + (f.sort === mapSort(c[0]) ? ' on' : '') + '" data-act="sortBy" data-k="' + mapSort(c[0]) + '">' + c[1] +
             '<span class="ar">' + (f.dir < 0 ? '▼' : '▲') + '</span></th>').join('') +
           '<th class="act"></th></tr></thead><tbody>' +
           page.map(r => {
@@ -219,12 +224,12 @@
             '<td><input type="checkbox" data-act-change="toggleSel" data-id="' + r.id + '"' + (f.sel[r.id] ? ' checked' : '') + ' aria-label="Выбрать строку" style="accent-color:var(--accent);width:16px;height:16px"></td>' +
             (f.cols.number ? '<td class="mono nowrap">' + (r.unread ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:6px"></span>' : '') + '2026-' + hi(r.number, f.q) + '</td>' : '') +
             (f.cols.receivedAt ? '<td class="nowrap small">' + U.dt(r.receivedAt) + '</td>' : '') +
-            (f.cols.client ? '<td><b>' + hi(r.client.name, f.q) + '</b><div class="tiny muted">' + hi(r.client.domain, f.q) + '</div></td>' : '') +
+            (f.cols.client ? '<td><b>' + hi(r.client.name, f.q) + '</b><span class="tiny muted"> · ' + hi(r.client.domain, f.q) + '</span></td>' : '') +
             (f.cols.subject ? '<td><div class="ellip" style="max-width:280px" title="' + esc(r.subject) + '">' + hi(r.subject, f.q) + '</div></td>' : '') +
             (f.cols.positionsCount ? '<td class="num"><button class="lnk" data-act="toggleRow" data-k="' + r.id + '" title="' + esc(exp ? T.collapsePos : T.expandPos) + '">' + r.positionsCount + (exp ? ' ▾' : ' ▸') + '</button></td>' : '') +
-            (f.cols.minConfidence ? '<td>' + U.confBadge(r.minConfidence) + '</td>' : '') +
-            (f.cols.quoteTotalRub ? '<td class="num">' + U.money(r.quoteTotalRub) + '</td>' : '') +
-            (f.cols.status ? '<td class="cell-edit">' + inlineSel('statusInline', r.id, window.MOCK.STATUS, r.status, 'st') + '</td>' : '') +
+            (f.cols.minConfidence ? '<td class="num">' + U.confBadge(r.minConfidence) + '</td>' : '') +
+            (f.cols.quoteTotalRub ? '<td class="money">' + (r.quoteTotalRub ? U.money(r.quoteTotalRub) : '<span class="muted">—</span>') + '</td>' : '') +
+            (f.cols.status ? '<td class="cell-edit">' + inlineSel('statusInline', r.id, window.MOCK.STATUS, r.status, 'st', 'badge-sel st-' + ((window.MOCK.STATUS_MAP[r.status] || {}).tone || 'neutral')) + '</td>' : '') +
             (f.cols.assignee ? '<td class="cell-edit">' + inlineSel('assigneeInline', r.id, window.MOCK.MANAGERS.map(m => [m[1], m[1]]), r.assignee.name, 'asg') + '</td>' : '') +
             (f.cols.updatedAt ? '<td class="small nowrap">' + U.dt(r.updatedAt) + '</td>' : '') +
             '<td class="act"><button class="btn sm" data-act="toggleRow" data-k="' + r.id + '" aria-label="' + esc(exp ? T.collapsePos : T.expandPos) + '">' + icon(exp ? 'chevD' : 'chevR', 'ic-sm') + '</button>' +
@@ -253,8 +258,8 @@
   const mapSort = k => k === 'receivedAt' ? 'date' : k === 'quoteTotalRub' ? 'sum' : k === 'client' ? 'client' : k === 'status' ? 'status' : 'date';
   function range(a, b) { const o = []; for (let i = a; i <= Math.min(b, a + 4); i++) o.push(i); return o; }
   /* инлайн-выбор в ячейке строки: работает без ухода со страницы */
-  function inlineSel(act, rid, opts, val, kind) {
-    return '<select class="cell-sel" data-act-change="' + act + '" data-id="' + rid + '" data-kind="' + kind + '" aria-label="' + esc(act) + '">' +
+  function inlineSel(act, rid, opts, val, kind, extra) {
+    return '<select class="cell-sel' + (extra ? ' ' + extra : '') + '" data-act-change="' + act + '" data-id="' + rid + '" data-kind="' + kind + '" aria-label="' + esc(act) + '">' +
       opts.map(o => '<option value="' + esc(o[0]) + '"' + (String(val) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') +
       '</select>';
   }
@@ -272,11 +277,34 @@
           '<span class="badge b-warn">Нет цены: ' + r.positions.filter(p => p.clientPriceRub === undefined).length + '</span>' +
           '<span class="badge b-ok">Сумма: ' + U.money(total) + '</span>' +
         '</div>' +
-        '<div class="tscroll"><table class="tbl sub"><thead><tr><th>Артикул</th><th>Наименование</th><th>Бренд</th><th>Кол-во</th><th>Цена клиенту</th><th>Сумма</th></tr></thead><tbody>' +
-        r.positions.map(p => '<tr><td class="mono">' + esc(p.article || '—') + '</td><td>' + esc(p.name) + '</td><td class="small">' + esc(p.brand || '—') + '</td>' +
-          '<td class="num">' + p.qty + ' ' + esc(p.unit) + '</td><td class="num">' + (p.clientPriceRub === undefined ? '<span class="badge b-bad">нет цены</span>' : U.money(p.clientPriceRub)) + '</td>' +
-          '<td class="num">' + (p.totalRub === undefined ? '—' : U.money(p.totalRub)) + '</td></tr>').join('') +
+        '<div class="tscroll"><table class="tbl sub"><thead><tr>' +
+          '<th>' + icon('tag','ic-sm') + ' Артикул</th><th>' + icon('file','ic-sm') + ' Наименование</th>' +
+          '<th>' + icon('grid','ic-sm') + ' Бренд</th><th>' + icon('hash','ic-sm') + ' Кол-во</th>' +
+          '<th>' + icon('calc','ic-sm') + ' Цена поставщика</th><th>' + icon('percent','ic-sm') + ' Пошлина</th>' +
+          '<th>' + icon('check','ic-sm') + ' Цена клиенту</th><th>' + icon('chart','ic-sm') + ' Сумма</th>' +
+          '<th class="act"></th></tr></thead><tbody>' +
+        r.positions.map(p => {
+          const noArt = !p.article, noPr = p.clientPriceRub === undefined;
+          return '<tr' + (p.confidence < 0.7 ? ' class="low"' : '') + '>' +
+            '<td class="edit"><input class="cell-in' + (noArt ? ' err' : '') + '" data-edit="setPosArticle" data-id="' + r.id + '|' + p.id + '" value="' + esc(p.article) + '" placeholder="нет" aria-label="Артикул"></td>' +
+            '<td class="edit"><input class="cell-in" data-edit="setPosName" data-id="' + r.id + '|' + p.id + '" value="' + esc(p.name) + '" aria-label="Наименование"></td>' +
+            '<td class="edit"><input class="cell-in" data-edit="setPosBrand" data-id="' + r.id + '|' + p.id + '" value="' + esc(p.brand || '') + '" aria-label="Бренд"></td>' +
+            '<td><input class="cell-in mono" type="number" min="1" data-edit="setPosQty" data-id="' + r.id + '|' + p.id + '" value="' + p.qty + '" aria-label="Количество"></td>' +
+            '<td><input class="cell-in mono" type="number" step="0.01" data-edit="setPosPrice" data-id="' + r.id + '|' + p.id + '" value="' + (p.supplierPrice === undefined ? '' : p.supplierPrice) + '" placeholder="—" aria-label="Цена поставщика"></td>' +
+            '<td class="num small">' + (p.dutyPct || 0) + '%</td>' +
+            '<td class="num">' + (noPr ? '<span class="badge b-bad">нет цены</span>' : U.money(p.clientPriceRub)) + '</td>' +
+            '<td class="num">' + (p.totalRub === undefined ? '—' : U.money(p.totalRub)) + '</td>' +
+            '<td class="act"><div class="row" style="gap:3px">' +
+              (noPr ? '<button class="ibtn" title="Запросить цену у поставщика" data-act="reqPrice" data-k="' + r.id + '|' + p.id + '" style="width:30px;height:30px">' + icon('truck','ic-sm') + '</button>' : '') +
+              '<button class="ibtn" title="Удалить позицию" data-act="delPos" data-k="' + r.id + '|' + p.id + '" style="width:30px;height:30px;color:var(--bad)">' + icon('trash','ic-sm') + '</button>' +
+            '</div></td></tr>';
+        }).join('') +
         '</tbody></table></div>' +
+        '<div class="row" style="gap:8px;margin-top:8px">' +
+          '<button class="btn sm" data-act="addPos" data-k="' + r.id + '">' + icon('plus','ic-sm') + ' Добавить позицию</button>' +
+          '<button class="btn sm" data-act="mergePos" data-k="' + r.id + '"' + (r.positions.length < 2 ? ' disabled' : '') + '>' + icon('merge','ic-sm') + ' Объединить дубли</button>' +
+          '<span class="tiny muted">' + icon('info','ic-sm') + ' Правки сохраняются автоматически, цена клиенту пересчитывается с пошлиной</span>' +
+        '</div>' +
         '<div class="row" style="gap:8px;margin-top:10px">' +
           '<button class="btn sm primary" data-act="openReq" data-k="' + r.id + '">' + icon('edit', 'ic-sm') + ' Открыть и доработать</button>' +
           '<button class="btn sm" data-act="reqArticleAll" data-k="' + r.id + '">' + icon('at', 'ic-sm') + ' Запросить артикулы</button>' +
