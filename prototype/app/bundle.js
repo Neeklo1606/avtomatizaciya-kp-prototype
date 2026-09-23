@@ -1,4 +1,3 @@
-
 /* ===== data.js ===== */
 /* Моковые данные по ТЗ, раздел 11. Реалистичные наборы для демонстрации. */
 window.MOCK = (function () {
@@ -333,6 +332,22 @@ window.MOCK = (function () {
     noAccess:'Раздел недоступен для текущей роли',
     searchPh:'Поиск: номер, клиент, артикул, поставщик…',
     saved:'Сохранено', unsaved:'Есть несохранённые изменения',
+    inTable:'Поиск по таблице: клиент, тема, артикул…', presets:'Мои представления', presetSave:'Сохранить представление',
+    presetName:'Название представления', expandPos:'Показать позиции', collapsePos:'Скрыть позиции',
+    activeFilters:'Активных фильтров', inlineHint:'Статус и ответственного можно менять прямо в строке.',
+    discount:'Скидка, %', aiEditMail:'ИИ-редактор письма', aiImprove:'Улучшить', aiShorten:'Сократить',
+    aiFormal:'Официальный тон', aiTranslate:'Перевести на русский', aiCheckArt:'Проверить артикулы',
+    aiDiff:'Что изменит ИИ', aiApply:'Применить', aiCancel:'Оставить как было', mailDraft:'Черновик письма',
+    rawMail:'Оригинал письма', requisites:'Реквизиты', position:'Должность', phone:'Телефон',
+    saveRequisites:'Сохранить реквизиты', helpTitle:'Горячие клавиши и подсказки',
+    supplierNew:'Новый поставщик', supplierAdded:'Поставщик добавлен', chartBig:'График', newsFile:'Выбрать файл получателей',
+    mailSavedToast:'Черновик письма сохранён.', aiAppliedToast:'Изменения ИИ применены к письму.',
+    discountApplied:'Скидка применена к позиции.', articleNotFound:'В номенклатуре такого артикула нет — введите вручную.',
+    applyShort:'Применить', mailEmpty:'Текст письма пуст.', presetNamePh:'Например: Просрочка поставщиков',
+    emptyTitle:'Здесь пока пусто', emptyText:'Данных для этого раздела нет. Измените фильтры или вернитесь на «Сегодня».',
+    emptyAction:'Показать данные', errorTitle:'Не удалось загрузить данные',
+    errorText:'Сервис не ответил. Проверьте подключение и повторите — ничего не потеряно.', errorRetry:'Повторить',
+    stateLabel:'Состояние экрана', stateData:'Обычное', stateLoading:'Загрузка', stateEmpty:'Пусто', stateError:'Ошибка',
     nothingFound:'Ничего не найдено', nothingFoundD:'Измените запрос или сбросьте фильтры.',
     allDone:'Все запросы обработаны', allDoneD:'Новых писем нет. Последняя проверка почты: сегодня в 09:12.',
     requiresAction:'Требует действия', queueReview:'Очередь на проверку', waiting:'Ожидание',
@@ -664,6 +679,18 @@ window.MOCK = (function () {
     const a = el.getAttribute('data-act-change');
     if (ACT[a]) ACT[a](el.value, el, e);
   }, false);
+  /* живой ввод: поиск по таблице и другие поля с мгновенной реакцией */
+  document.addEventListener('input', function (e) {
+    const el = e.target.closest('[data-act-input]');
+    if (!el) return;
+    const a = el.getAttribute('data-act-input');
+    clearTimeout(el.__it);
+    el.__it = setTimeout(function () { if (ACT[a]) ACT[a](el.value, el, e); }, 160);
+  }, false);
+  document.addEventListener('keydown', function (e) {
+    const el = e.target.closest && e.target.closest('[data-act-input]');
+    if (el && e.key === 'Escape') { el.value = ''; const a = el.getAttribute('data-act-input'); if (ACT[a]) ACT[a]('', el, e); el.blur(); }
+  }, true);
 
   /* клавиатура: Esc, / — поиск, J/K — навигация по списку, Ctrl+Enter — подтвердить */
   document.addEventListener('keydown', function (e) {
@@ -671,6 +698,8 @@ window.MOCK = (function () {
     const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement && document.activeElement.tagName);
     if (e.key === '/' && !typing) { e.preventDefault(); focusSearch(); return; }
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && ACT['hotConfirm']) { ACT['hotConfirm'](); return; }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B') && ACT['hotSide']) { e.preventDefault(); ACT['hotSide'](); return; }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K') && ACT['hotAi']) { e.preventDefault(); ACT['hotAi'](); return; }
     if (!typing && (e.key === 'j' || e.key === 'J') && ACT['hotNext']) ACT['hotNext'](1);
     if (!typing && (e.key === 'k' || e.key === 'K') && ACT['hotNext']) ACT['hotNext'](-1);
   });
@@ -747,8 +776,35 @@ window.MOCK = (function () {
       if (p.supplierPrice === undefined || !p.supplierCurrency) { p.clientPriceRub = undefined; p.totalRub = undefined; return; }
       const rule = this.rules.filter(r => r.cat === p.category)[0] || { duty: 5, markup: 18 };
       p.dutyPct = rule.duty;
-      p.clientPriceRub = Math.round(p.supplierPrice * this.rateFor(p.supplierCurrency) * (1 + rule.duty / 100) * (1 + rule.markup / 100));
+      const disc = Math.max(0, Math.min(90, +(p.discount || 0)));
+      const base = p.supplierPrice * this.rateFor(p.supplierCurrency) * (1 + rule.duty / 100) * (1 + rule.markup / 100);
+      p.clientPriceRub = Math.round(base * (1 - disc / 100));
       p.totalRub = p.clientPriceRub * p.qty;
+    },
+    /* номенклатура для автокомплита артикулов: артикул → {name, brand, cat, price, cur} */
+    articleIndex() {
+      if (this.__artIdx) return this.__artIdx;
+      const idx = {};
+      (this.pricelists || []).forEach(pl => (pl.rows || []).forEach(r => {
+        if (r && r.article) idx[r.article] = { name: r.name, brand: r.brand, cat: r.cat, price: r.price, cur: r.cur };
+      }));
+      (this.requests || []).forEach(rq => (rq.positions || []).forEach(pp => { if (pp.article) idx[pp.article] = { name: pp.name, brand: pp.brand, cat: pp.category, price: pp.supplierPrice, cur: pp.supplierCurrency || 'USD' }; }));
+      this.__artIdx = idx;
+      return idx;
+    },
+    articleSuggest(q) {
+      const idx = this.articleIndex(); const qq = String(q || '').toLowerCase();
+      return Object.keys(idx).filter(a => a.toLowerCase().indexOf(qq) >= 0).slice(0, 8).map(a => ({ article: a, info: idx[a] }));
+    },
+    /* поставщики: базовые из моков + добавленные пользователем */
+    suppliers() {
+      const extra = (function () { try { return JSON.parse(localStorage.getItem('kp-sup-extra') || '[]'); } catch (e) { return []; } })();
+      return (window.MOCK.SUPPLIERS || []).concat(extra);
+    },
+    addSupplier(row) {
+      const extra = (function () { try { return JSON.parse(localStorage.getItem('kp-sup-extra') || '[]'); } catch (e) { return []; } })();
+      extra.push(row);
+      try { localStorage.setItem('kp-sup-extra', JSON.stringify(extra)); } catch (e) {}
     },
     counts() {
       const R = this.requests;
@@ -805,6 +861,69 @@ window.MOCK = (function () {
     render(true);
   }
   const RENDERERS = {};
+
+  /* Состояния экрана: data (обычное), loading, empty, error — по ТЗ раздел 10.
+     Переключение: ?mock=loading|empty|error (как у остальных стендов) или UI.MOCK(). */
+  const STATES = ['data', 'loading', 'empty', 'error'];
+  let MOCKSTATE = 'data';
+  let mockTimer = null;
+  function readMockFromUrl() {
+    try {
+      const q = new URLSearchParams(location.search).get('mock');
+      if (STATES.indexOf(q) >= 0) MOCKSTATE = q;
+    } catch (e) {}
+  }
+  function setMock(v) {
+    MOCKSTATE = STATES.indexOf(v) >= 0 ? v : 'data';
+    try {
+      const u = new URL(location.href);
+      if (MOCKSTATE === 'data') u.searchParams.delete('mock'); else u.searchParams.set('mock', MOCKSTATE);
+      history.replaceState(null, '', u.toString());
+    } catch (e) {}
+    if (mockTimer) { clearTimeout(mockTimer); mockTimer = null; }
+    render(true);
+    if (MOCKSTATE === 'loading') mockTimer = setTimeout(() => setMock('data'), 2600);
+  }
+  readMockFromUrl();
+
+  function skeleton(route) {
+    const rows = route === 'requests' ? 8 : 4;
+    return '<div class="content">' +
+      '<div class="row" style="align-items:flex-end;gap:16px;margin-bottom:16px">' +
+        '<div class="grow"><div class="sk" style="height:26px;width:280px;border-radius:6px"></div>' +
+        '<div class="sk" style="height:14px;width:380px;max-width:60%;border-radius:6px;margin-top:9px"></div></div>' +
+        '<div class="sk" style="height:38px;width:120px;border-radius:var(--r-sm)"></div>' +
+        '<div class="sk" style="height:38px;width:120px;border-radius:var(--r-sm)"></div></div>' +
+      '<div class="grid rv" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:16px">' +
+        [0, 1, 2, 3].map(() => '<div class="card pad"><div class="sk" style="height:12px;width:70%;border-radius:6px"></div>' +
+          '<div class="sk" style="height:22px;width:45%;border-radius:6px;margin-top:10px"></div></div>').join('') +
+      '</div>' +
+      '<div class="tw"><div class="toolbar"><span class="small muted">Загружаю данные…</span>' +
+        '<div class="grow"></div><span class="small muted">Осталось немного</span></div>' +
+        '<div style="padding:14px">' + Array.from({ length: rows }).map(() => '<div class="sk sk-row"></div>').join('') + '</div></div></div>';
+  }
+  function stateWrap(kind, title, text, actions) {
+    const cls = kind === 'error' ? 'err-state' : 'empty';
+    return '<div class="content"><div class="' + cls + '">' +
+      '<span class="ei">' + icon(kind === 'error' ? 'alertC' : 'search') + '</span>' +
+      '<h3 class="h2">' + esc(title) + '</h3><p class="muted">' + esc(text) + '</p>' +
+      '<div class="row" style="margin-top:6px">' + actions + '</div></div></div>';
+  }
+  function stateView(route) {
+    if (MOCKSTATE === 'loading') return skeleton(route);
+    if (MOCKSTATE === 'empty') {
+      return stateWrap('empty', T.emptyTitle, T.emptyText,
+        '<button class="btn primary" data-act="mockSet" data-k="data">' + icon('refresh', 'ic-sm') + ' ' + T.emptyAction + '</button>' +
+        '<button class="btn" data-act="go" data-k="today">' + icon('home', 'ic-sm') + ' На «Сегодня»</button>');
+    }
+    if (MOCKSTATE === 'error') {
+      return stateWrap('error', T.errorTitle, T.errorText,
+        '<button class="btn primary" data-act="mockRetry">' + icon('refresh', 'ic-sm') + ' ' + T.errorRetry + '</button>' +
+        '<button class="btn" data-act="go" data-k="today">' + icon('home', 'ic-sm') + ' На «Сегодня»</button>');
+    }
+    return null;
+  }
+
   function render(force) {
     const r = S.authed ? cur() : 'login';
     const t = Date.now();
@@ -815,8 +934,9 @@ window.MOCK = (function () {
     const view = document.getElementById('view');
     if (!view) return;
     const fn = RENDERERS[r] || RENDERERS.today;
+    const st = stateView(r);
     if (!roleCan(r)) { view.innerHTML = shell.accessDenied(r); }
-    else view.innerHTML = fn();
+    else view.innerHTML = st || fn();
     view.querySelector('.content') && view.querySelector('.content').scrollIntoView({ block: 'start' });
     window.scrollTo({ top: 0, behavior: 'auto' });
     reveal(view);
@@ -845,7 +965,8 @@ window.MOCK = (function () {
     overlay: overlay, isOpen: isOpen, togglePanel: togglePanel, reveal: reveal,
     money: money, money2: money2, num: num, dt: dt, dOnly: dOnly, esc: esc,
     conf: conf, confBadge: confBadge, statusBadge: statusBadge, toneCls: toneCls,
-    exportXls: exportXls, AI: AI, shell: shell, closeSearch: closeSearch
+    exportXls: exportXls, AI: AI, shell: shell, closeSearch: closeSearch,
+    mock: () => MOCKSTATE, setMock: setMock
   };
 })();
 
@@ -860,7 +981,7 @@ window.MOCK = (function () {
   const F = {
     requests: { status: '', assignee: '', client: '', period: '', action: false, low: false, sort: 'date', dir: -1, page: 1,
       per: 12, cols: { number: 1, receivedAt: 1, client: 1, subject: 1, positionsCount: 1, minConfidence: 1, quoteTotalRub: 1, status: 1, assignee: 1, updatedAt: 0 },
-      sel: {} },
+      sel: {}, q: '', exp: {} },
     spec: { step: 1 }, pipe: { view: 'all' }
   };
   U.F = F;
@@ -955,6 +1076,14 @@ window.MOCK = (function () {
   R.today = todayView;
 
   /* ============================================================ ВХОДЯЩИЕ ЗАПРОСЫ */
+  /* подсветка совпадений поиска в тексте ячейки */
+  function hi(text, q) {
+    const t = String(text === undefined || text === null ? '' : text);
+    if (!q) return esc(t);
+    const i = t.toLowerCase().indexOf(String(q).toLowerCase());
+    if (i < 0) return esc(t);
+    return esc(t.slice(0, i)) + '<mark class="hit">' + esc(t.slice(i, i + String(q).length)) + '</mark>' + esc(t.slice(i + String(q).length));
+  }
   function fRows() {
     const f = F.requests; let rows = DB.requests.slice();
     if (f.status) rows = rows.filter(r => r.status === f.status);
@@ -962,6 +1091,18 @@ window.MOCK = (function () {
     if (f.client) rows = rows.filter(r => r.client.name === f.client);
     if (f.action) rows = rows.filter(r => ['review','need_article','waiting_supplier'].indexOf(r.status) >= 0);
     if (f.low) rows = rows.filter(r => r.minConfidence < 0.7);
+    if (f.period) { const days = +f.period, ref = new Date('2026-09-23T23:59:59'); rows = rows.filter(r => (ref - new Date(r.receivedAt)) / 86400000 <= days); }
+    if (f.q) {
+      const q = f.q.toLowerCase();
+      rows = rows.filter(r => {
+        const inPos = (r.positions || []).some(pp => (pp.article || '').toLowerCase().indexOf(q) >= 0 || (pp.name || '').toLowerCase().indexOf(q) >= 0 || (pp.brand || '').toLowerCase().indexOf(q) >= 0);
+        const inSup = (r.positions || []).some(pp => (pp.supplier || '').toLowerCase().indexOf(q) >= 0);
+        return ('2026-' + r.number).indexOf(q) >= 0 || String(r.number).indexOf(q) >= 0 ||
+          (r.client.name || '').toLowerCase().indexOf(q) >= 0 || (r.client.domain || '').toLowerCase().indexOf(q) >= 0 ||
+          (r.subject || '').toLowerCase().indexOf(q) >= 0 || (r.email && r.email.subject || '').toLowerCase().indexOf(q) >= 0 ||
+          (r.assignee.name || '').toLowerCase().indexOf(q) >= 0 || inPos || inSup;
+      });
+    }
     const s = f.sort, d = f.dir;
     rows.sort((a, b) => {
       let x, y;
@@ -973,25 +1114,51 @@ window.MOCK = (function () {
     });
     return rows;
   }
+  function activeFilterCount(f) {
+    return [f.status, f.assignee, f.client, f.period, f.q].filter(Boolean).length + (f.action ? 1 : 0) + (f.low ? 1 : 0);
+  }
+  function presetsBar() {
+    const list = loadPresets();
+    return '<div class="toolbar" style="gap:8px;flex-wrap:wrap">' +
+      '<span class="small muted">' + icon('book', 'ic-sm') + ' ' + T.presets + ':</span>' +
+      (list.length ? list.map((p, i) => '<button class="chip" data-act="applyPreset" data-k="' + i + '" title="' + esc(p.name) + '">' + esc(p.name) + ' <span data-act="delPreset" data-k="' + i + '" class="x" role="button" aria-label="Удалить представление">×</span></button>').join('')
+        : '<span class="tiny muted">Пока нет сохранённых представлений.</span>') +
+      '<button class="btn sm" data-act="savePreset">' + icon('plus', 'ic-sm') + ' ' + T.presetSave + '</button>' +
+      '</div>';
+  }
+  function loadPresets() { try { return JSON.parse(localStorage.getItem('kp-presets-v1') || '[]'); } catch (e) { return []; } }
+  R.__loadPresets = loadPresets;
+
   function requestsView() {
     const f = F.requests, rows = fRows();
     const pages = Math.max(1, Math.ceil(rows.length / f.per));
     if (f.page > pages) f.page = pages;
     const page = rows.slice((f.page - 1) * f.per, f.page * f.per);
     const selCount = Object.keys(f.sel).filter(k => f.sel[k]).length;
+    const NUMCOL = { positionsCount:1, minConfidence:1, quoteTotalRub:1 };
+    const CICON = {
+      number:'hash', receivedAt:'calendar', client:'users', subject:'mail', positionsCount:'grid',
+      minConfidence:'percent', quoteTotalRub:'calc', status:'activity', assignee:'user', updatedAt:'history'
+    };
     const C = [
       ['number','№'],['receivedAt','Дата'],['client','Клиент'],['subject','Тема'],['positionsCount','Позиций'],
       ['minConfidence','Уверенность'],['quoteTotalRub','Сумма КП'],['status','Статус'],['assignee','Ответственный'],['updatedAt','Обновлено']
-    ].filter(c => f.cols[c[0]]);
+    ].filter(c => f.cols[c[0]]).map(c => [c[0], (CICON[c[0]] ? icon(CICON[c[0]], 'ic-sm') + ' ' : '') + c[1]]);
 
+    const afc = activeFilterCount(f);
     return '<div class="content">' +
-      head('Входящие запросы', rows.length + ' запросов по текущему фильтру',
-        '<button class="btn" data-act="resetFilters">' + icon('rotate', 'ic-sm') + ' Сбросить</button>' +
+      head('Входящие запросы', rows.length + ' запросов по текущему фильтру' + (afc ? ' · ' + T.activeFilters + ': ' + afc : ''),
+        '<button class="btn" data-act="resetFilters"' + (afc ? '' : ' disabled') + '>' + icon('rotate', 'ic-sm') + ' Сбросить</button>' +
         '<button class="btn" data-act="exportRequests">' + icon('download', 'ic-sm') + ' ' + T.exportXls + '</button>' +
         '<button class="btn" data-act="openCols">' + icon('cols', 'ic-sm') + ' Колонки</button>') +
 
       '<div class="tw rv">' +
-        '<div class="toolbar">' +
+        '<div class="toolbar"><div class="gsearch">' + icon('search', 'ic-sm') +
+          '<input type="search" value="' + esc(f.q) + '" data-act-input="tqSet" placeholder="' + esc(T.inTable) + '" aria-label="' + esc(T.inTable) + '">' +
+          (f.q ? '<button class="ibtn" data-act="tqClear" aria-label="Очистить поиск">' + icon('x', 'ic-sm') + '</button>' : '') +
+        '</div>' +
+        '<span class="tiny muted hide-sm">' + icon('info', 'ic-sm') + ' ' + T.inlineHint + '</span>' +
+        '<div class="grow"></div>' +
           '<div class="filters desk">' +
             sel('fStatus', 'Статус: все', [['','Статус: все']].concat(window.MOCK.STATUS.map(s => [s[0], s[1]])), f.status, 'fStatusSet') +
             sel('fAssignee', 'Ответственный: все', [['','Ответственный: все']].concat(window.MOCK.MANAGERS.map(m => [m[1], m[1]])), f.assignee, 'fAssigneeSet') +
@@ -1010,6 +1177,8 @@ window.MOCK = (function () {
           '</div>' +
         '</div>' +
 
+        presetsBar() +
+
         (selCount ? '<div class="toolbar" style="background:var(--accent-soft);border-bottom-color:var(--accent)">' +
           '<b class="small">' + T.selected + ': ' + selCount + '</b>' +
           '<button class="btn sm" data-act="bulkAssign">' + icon('userPlus', 'ic-sm') + ' ' + T.assign + '</button>' +
@@ -1019,23 +1188,27 @@ window.MOCK = (function () {
 
         '<div class="tscroll desk"><table class="tbl"><thead><tr>' +
           '<th style="width:38px"><input type="checkbox" data-act-change="selectAll" aria-label="Выбрать все" style="accent-color:var(--accent);width:16px;height:16px"' + (page.length && page.every(r => f.sel[r.id]) ? ' checked' : '') + '></th>' +
-          C.map(c => '<th class="sortable' + (f.sort === mapSort(c[0]) ? ' on' : '') + '" data-act="sortBy" data-k="' + mapSort(c[0]) + '">' + c[1] +
+          C.map(c => '<th class="sortable' + (NUMCOL[c[0]] ? ' num' : '') + (f.sort === mapSort(c[0]) ? ' on' : '') + '" data-act="sortBy" data-k="' + mapSort(c[0]) + '">' + c[1] +
             '<span class="ar">' + (f.dir < 0 ? '▼' : '▲') + '</span></th>').join('') +
           '<th class="act"></th></tr></thead><tbody>' +
-          page.map(r => '<tr class="' + (r.minConfidence < 0.7 ? 'low' : '') + (f.sel[r.id] ? ' sel' : '') + '">' +
+          page.map(r => {
+            const exp = !!f.exp[r.id];
+            return '<tr class="' + (r.minConfidence < 0.7 ? 'low' : '') + (f.sel[r.id] ? ' sel' : '') + (exp ? ' exp' : '') + '">' +
             '<td><input type="checkbox" data-act-change="toggleSel" data-id="' + r.id + '"' + (f.sel[r.id] ? ' checked' : '') + ' aria-label="Выбрать строку" style="accent-color:var(--accent);width:16px;height:16px"></td>' +
-            (f.cols.number ? '<td class="mono nowrap">' + (r.unread ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:6px"></span>' : '') + '2026-' + r.number + '</td>' : '') +
+            (f.cols.number ? '<td class="mono nowrap">' + (r.unread ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:6px"></span>' : '') + '2026-' + hi(r.number, f.q) + '</td>' : '') +
             (f.cols.receivedAt ? '<td class="nowrap small">' + U.dt(r.receivedAt) + '</td>' : '') +
-            (f.cols.client ? '<td><b>' + esc(r.client.name) + '</b><div class="tiny muted">' + esc(r.client.domain) + '</div></td>' : '') +
-            (f.cols.subject ? '<td><div class="ellip" style="max-width:280px">' + esc(r.subject) + '</div></td>' : '') +
-            (f.cols.positionsCount ? '<td class="num">' + r.positionsCount + '</td>' : '') +
-            (f.cols.minConfidence ? '<td>' + U.confBadge(r.minConfidence) + '</td>' : '') +
-            (f.cols.quoteTotalRub ? '<td class="num">' + U.money(r.quoteTotalRub) + '</td>' : '') +
-            (f.cols.status ? '<td>' + U.statusBadge(r.status) + '</td>' : '') +
-            (f.cols.assignee ? '<td class="small nowrap">' + esc(r.assignee.name) + '</td>' : '') +
+            (f.cols.client ? '<td><b>' + hi(r.client.name, f.q) + '</b><span class="tiny muted"> · ' + hi(r.client.domain, f.q) + '</span></td>' : '') +
+            (f.cols.subject ? '<td><div class="ellip" style="max-width:280px" title="' + esc(r.subject) + '">' + hi(r.subject, f.q) + '</div></td>' : '') +
+            (f.cols.positionsCount ? '<td class="num"><button class="lnk" data-act="toggleRow" data-k="' + r.id + '" title="' + esc(exp ? T.collapsePos : T.expandPos) + '">' + r.positionsCount + (exp ? ' ▾' : ' ▸') + '</button></td>' : '') +
+            (f.cols.minConfidence ? '<td class="num">' + U.confBadge(r.minConfidence) + '</td>' : '') +
+            (f.cols.quoteTotalRub ? '<td class="money">' + (r.quoteTotalRub ? U.money(r.quoteTotalRub) : '<span class="muted">—</span>') + '</td>' : '') +
+            (f.cols.status ? '<td class="cell-edit">' + inlineSel('statusInline', r.id, window.MOCK.STATUS, r.status, 'st', 'badge-sel st-' + ((window.MOCK.STATUS_MAP[r.status] || {}).tone || 'neutral')) + '</td>' : '') +
+            (f.cols.assignee ? '<td class="cell-edit">' + inlineSel('assigneeInline', r.id, window.MOCK.MANAGERS.map(m => [m[1], m[1]]), r.assignee.name, 'asg') + '</td>' : '') +
             (f.cols.updatedAt ? '<td class="small nowrap">' + U.dt(r.updatedAt) + '</td>' : '') +
-            '<td class="act"><button class="btn sm" data-act="openReq" data-k="' + r.id + '">' + T.open + '</button></td>' +
-            '</tr>').join('') +
+            '<td class="act"><button class="btn sm" data-act="toggleRow" data-k="' + r.id + '" aria-label="' + esc(exp ? T.collapsePos : T.expandPos) + '">' + icon(exp ? 'chevD' : 'chevR', 'ic-sm') + '</button>' +
+              '<button class="btn sm primary" data-act="openReq" data-k="' + r.id + '">' + T.open + '</button></td>' +
+            '</tr>' + (exp ? expandRow(r) : '');
+          }).join('') +
           '</tbody></table></div>' +
 
         '<div class="mcards">' + page.map(mcard).join('') + '</div>' +
@@ -1057,6 +1230,62 @@ window.MOCK = (function () {
   }
   const mapSort = k => k === 'receivedAt' ? 'date' : k === 'quoteTotalRub' ? 'sum' : k === 'client' ? 'client' : k === 'status' ? 'status' : 'date';
   function range(a, b) { const o = []; for (let i = a; i <= Math.min(b, a + 4); i++) o.push(i); return o; }
+  /* инлайн-выбор в ячейке строки: работает без ухода со страницы */
+  function inlineSel(act, rid, opts, val, kind, extra) {
+    return '<select class="cell-sel' + (extra ? ' ' + extra : '') + '" data-act-change="' + act + '" data-id="' + rid + '" data-kind="' + kind + '" aria-label="' + esc(act) + '">' +
+      opts.map(o => '<option value="' + esc(o[0]) + '"' + (String(val) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') +
+      '</select>';
+  }
+  /* быстрый просмотр позиций прямо в таблице */
+  function expandRow(r) {
+    const C = [['number','№'],['receivedAt','Дата'],['client','Клиент'],['subject','Тема'],['positionsCount','Позиций'],
+      ['minConfidence','Уверенность'],['quoteTotalRub','Сумма КП'],['status','Статус'],['assignee','Ответственный'],['updatedAt','Обновлено']];
+    const colspan = C.filter(c => F.requests.cols[c[0]]).length + 2;
+    const total = r.positions.reduce((a, p) => a + (p.totalRub || 0), 0);
+    return '<tr class="subrow"><td></td><td colspan="' + colspan + '">' +
+      '<div class="subwrap">' +
+        '<div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">' +
+          '<span class="badge b-info">Позиций: ' + r.positions.length + '</span>' +
+          '<span class="badge b-neutral">Нет артикула: ' + r.positions.filter(p => !p.article).length + '</span>' +
+          '<span class="badge b-warn">Нет цены: ' + r.positions.filter(p => p.clientPriceRub === undefined).length + '</span>' +
+          '<span class="badge b-ok">Сумма: ' + U.money(total) + '</span>' +
+        '</div>' +
+        '<div class="tscroll"><table class="tbl sub"><thead><tr>' +
+          '<th>' + icon('tag','ic-sm') + ' Артикул</th><th>' + icon('file','ic-sm') + ' Наименование</th>' +
+          '<th>' + icon('grid','ic-sm') + ' Бренд</th><th>' + icon('hash','ic-sm') + ' Кол-во</th>' +
+          '<th>' + icon('calc','ic-sm') + ' Цена поставщика</th><th>' + icon('percent','ic-sm') + ' Пошлина</th>' +
+          '<th>' + icon('check','ic-sm') + ' Цена клиенту</th><th>' + icon('chart','ic-sm') + ' Сумма</th>' +
+          '<th class="act"></th></tr></thead><tbody>' +
+        r.positions.map(p => {
+          const noArt = !p.article, noPr = p.clientPriceRub === undefined;
+          return '<tr' + (p.confidence < 0.7 ? ' class="low"' : '') + '>' +
+            '<td class="edit"><input class="cell-in' + (noArt ? ' err' : '') + '" data-edit="setPosArticle" data-id="' + r.id + '|' + p.id + '" value="' + esc(p.article) + '" placeholder="нет" aria-label="Артикул"></td>' +
+            '<td class="edit"><input class="cell-in" data-edit="setPosName" data-id="' + r.id + '|' + p.id + '" value="' + esc(p.name) + '" aria-label="Наименование"></td>' +
+            '<td class="edit"><input class="cell-in" data-edit="setPosBrand" data-id="' + r.id + '|' + p.id + '" value="' + esc(p.brand || '') + '" aria-label="Бренд"></td>' +
+            '<td><input class="cell-in mono" type="number" min="1" data-edit="setPosQty" data-id="' + r.id + '|' + p.id + '" value="' + p.qty + '" aria-label="Количество"></td>' +
+            '<td><input class="cell-in mono" type="number" step="0.01" data-edit="setPosPrice" data-id="' + r.id + '|' + p.id + '" value="' + (p.supplierPrice === undefined ? '' : p.supplierPrice) + '" placeholder="—" aria-label="Цена поставщика"></td>' +
+            '<td class="num small">' + (p.dutyPct || 0) + '%</td>' +
+            '<td class="num">' + (noPr ? '<span class="badge b-bad">нет цены</span>' : U.money(p.clientPriceRub)) + '</td>' +
+            '<td class="num">' + (p.totalRub === undefined ? '—' : U.money(p.totalRub)) + '</td>' +
+            '<td class="act"><div class="row" style="gap:3px">' +
+              (noPr ? '<button class="ibtn" title="Запросить цену у поставщика" data-act="reqPrice" data-k="' + r.id + '|' + p.id + '" style="width:30px;height:30px">' + icon('truck','ic-sm') + '</button>' : '') +
+              '<button class="ibtn" title="Удалить позицию" data-act="delPos" data-k="' + r.id + '|' + p.id + '" style="width:30px;height:30px;color:var(--bad)">' + icon('trash','ic-sm') + '</button>' +
+            '</div></td></tr>';
+        }).join('') +
+        '</tbody></table></div>' +
+        '<div class="row" style="gap:8px;margin-top:8px">' +
+          '<button class="btn sm" data-act="addPos" data-k="' + r.id + '">' + icon('plus','ic-sm') + ' Добавить позицию</button>' +
+          '<button class="btn sm" data-act="mergePos" data-k="' + r.id + '"' + (r.positions.length < 2 ? ' disabled' : '') + '>' + icon('merge','ic-sm') + ' Объединить дубли</button>' +
+          '<span class="tiny muted">' + icon('info','ic-sm') + ' Правки сохраняются автоматически, цена клиенту пересчитывается с пошлиной</span>' +
+        '</div>' +
+        '<div class="row" style="gap:8px;margin-top:10px">' +
+          '<button class="btn sm primary" data-act="openReq" data-k="' + r.id + '">' + icon('edit', 'ic-sm') + ' Открыть и доработать</button>' +
+          '<button class="btn sm" data-act="reqArticleAll" data-k="' + r.id + '">' + icon('at', 'ic-sm') + ' Запросить артикулы</button>' +
+          '<button class="btn sm" data-act="reqAllPrices" data-k="' + r.id + '">' + icon('truck', 'ic-sm') + ' Запросить цены</button>' +
+          '<button class="btn sm" data-act="assignInline" data-k="' + r.id + '">' + icon('userPlus', 'ic-sm') + ' Назначить</button>' +
+        '</div>' +
+      '</div></td></tr>';
+  }
   function sel(id, ph, opts, val, act) {
     return '<select class="sel" id="' + id + '" data-act-change="' + act + '" aria-label="' + esc(ph) + '">' +
       opts.map(o => '<option value="' + esc(o[0]) + '"' + (String(val) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>';
@@ -1144,12 +1373,25 @@ window.MOCK = (function () {
   /* --- письмо --- */
   function emailZone(r) {
     const marks = r.positions.filter(p => p.article).map(p => p.article);
-    let txt = esc(r.email.body);
+    const isDraft = !!r.email.work;
+    let txt = esc(isDraft ? r.email.work : r.email.body);
     marks.forEach(a => { txt = txt.replace(new RegExp('(' + a + ')', 'g'), '<mark data-act="posFromMail" data-k="' + a + '">$1</mark>'); });
     return '<div class="grid rv" style="grid-template-columns:minmax(0,2fr) minmax(280px,1fr)">' +
-      '<div class="mail"><div class="mail-h"><div class="h3">' + esc(r.email.subject) + '</div>' +
+      '<div class="mail"><div class="mail-h"><div class="row" style="gap:8px;flex-wrap:wrap">' +
+          '<div class="h3 grow">' + esc(r.email.subject) + '</div>' +
+          (isDraft ? '<span class="badge b-info">' + T.mailDraft + '</span>' : '<span class="badge b-neutral">Оригинал</span>') +
+        '</div>' +
         '<div class="mail-meta" style="margin-top:6px">' + icon('mail', 'ic-sm') + ' ' + esc(r.email.from) + ' → ' + esc(r.email.to) +
-        '<span>·</span><span>' + esc(r.email.date) + '</span></div></div>' +
+        '<span>·</span><span>' + esc(r.email.date) + '</span></div>' +
+        '<div class="toolbar" style="margin:10px -14px 0;border-top:1px solid var(--line);border-bottom:0;flex-wrap:wrap">' +
+          '<button class="btn sm" data-act="mailEdit" data-k="' + r.id + '">' + icon('edit', 'ic-sm') + ' Редактировать текст</button>' +
+          '<button class="btn sm primary" data-act="openAiMail" data-k="' + r.id + '">' + icon('wand', 'ic-sm') + ' ' + T.aiEditMail + '</button>' +
+          '<button class="btn sm" data-act="mailDraftSave" data-k="' + r.id + '">' + icon('check', 'ic-sm') + ' ' + T.mailDraft + '</button>' +
+          (isDraft ? '<button class="btn sm" data-act="mailResetWork" data-k="' + r.id + '">' + icon('rotate', 'ic-sm') + ' К оригиналу</button>' : '') +
+          '<div class="grow"></div>' +
+          '<button class="btn sm" data-act="openRawMail" data-k="' + r.id + '">' + icon('mail', 'ic-sm') + ' ' + T.rawMail + '</button>' +
+        '</div>' +
+        '</div>' +
         '<div class="mail-body">' + txt + '</div>' +
         '<div style="padding:0 14px 14px">' +
           (r.__imgs ? '<div class="blocked-img">' + icon('image', 'ic-sm') + ' Изображения загружены. </div>'
@@ -1338,6 +1580,7 @@ window.MOCK = (function () {
       '<button class="btn sm" data-act="aiSummary">' + icon('activity', 'ic-sm') + ' ' + T.aiSummary + '</button>' +
       '<button class="btn sm" data-act="aiReply">' + icon('wand', 'ic-sm') + ' ' + T.aiReply + '</button>' +
       (place === 'email' ? '<button class="btn sm" data-act="aiSuggest">' + icon('tag', 'ic-sm') + ' Определить артикулы</button>' : '') +
+      (place === 'email' ? '<button class="btn sm primary" data-act="openAiMail" data-k="' + r.id + '">' + icon('edit', 'ic-sm') + ' ' + T.aiEditMail + '</button>' : '') +
       '<button class="btn sm" data-act="aiChat" data-k="' + r.id + '">' + icon('chat', 'ic-sm') + ' ' + T.aiAsk + '</button>' +
       '</div>' +
       '<div id="aiOut"></div></div>';
@@ -1475,9 +1718,21 @@ window.MOCK = (function () {
     return '<div class="content" style="max-width:820px">' +
       head(T.profile, T.profileAbout) +
       '<div class="card pad rv" style="margin-bottom:14px"><div class="row" style="gap:14px">' +
-      '<span class="ava" style="width:52px;height:52px;font-size:18px">КН</span>' +
-      '<div class="grow"><div class="h2">Клочко Никита</div><div class="small muted">klochko@neeklo-lab.ru · ' + esc(roleName) + '</div></div>' +
+      '<span class="ava" style="width:52px;height:52px;font-size:18px">' + esc(prof().name.split(' ').map(w => w[0] || '').slice(0, 2).join('')) + '</span>' +
+      '<div class="grow"><div class="h2">' + esc(prof().name) + '</div><div class="small muted">' + esc(prof().mail) + ' · ' + esc(prof().post) + ' · ' + esc(roleName) + '</div></div>' +
       '<button class="btn" data-act="switchRole">' + icon('user', 'ic-sm') + ' Сменить роль</button></div></div>' +
+
+      '<div class="card rv" style="margin-bottom:14px"><div class="card-h"><div class="h3">' + T.requisites + '</div></div>' +
+      '<div class="card-b"><div class="row" style="gap:10px;flex-wrap:wrap">' +
+        '<div class="field grow" style="min-width:200px"><label>ФИО</label><input class="inp" data-edit="setProfileName" value="' + esc(prof().name) + '" aria-label="ФИО"></div>' +
+        '<div class="field grow" style="min-width:200px"><label>' + T.position + '</label><input class="inp" data-edit="setProfileRole" value="' + esc(prof().post) + '" aria-label="' + T.position + '"></div>' +
+      '</div><div class="row" style="gap:10px;flex-wrap:wrap">' +
+        '<div class="field grow" style="min-width:200px"><label>Email</label><input class="inp" data-edit="setProfileMail" value="' + esc(prof().mail) + '" aria-label="Email"></div>' +
+        '<div class="field grow" style="min-width:200px"><label>' + T.phone + '</label><input class="inp" data-edit="setProfilePhone" value="' + esc(prof().phone) + '" aria-label="' + T.phone + '"></div>' +
+      '</div>' +
+      '<div class="row" style="gap:8px;margin-top:10px"><span data-flag class="save-flag">' + icon('check', 'ic-sm') + ' ' + T.saved + '</span>' +
+      '<div class="grow"></div><button class="btn sm" data-act="resetProfile">Вернуть демо-значения</button></div>' +
+      '<div class="fhint" style="margin-top:8px">' + icon('info', 'ic-sm') + ' Данные подставляются в подписи писем и в шаблоны ответов.</div></div></div>' +
 
       '<div class="card rv" style="margin-bottom:14px"><div class="card-h"><div class="h3">' + T.profileTheme + '</div></div>' +
       '<div class="card-b"><div class="seg"><button class="' + (U.S.theme === 'light' ? 'on' : '') + '" data-act="setTheme" data-k="light">' + icon('sun', 'ic-sm') + ' ' + T.themeLight + '</button>' +
@@ -1505,6 +1760,10 @@ window.MOCK = (function () {
       '</div></div>' +
       dlgAi(null) + dlgRole() + '</div>';
   };
+  const PROF_DEF = { name: 'Клочко Никита', post: 'Руководитель отдела продаж', mail: 'klochko@neeklo-lab.ru', phone: '+7 495 123-45-67' };
+  function prof() {
+    try { return Object.assign({}, PROF_DEF, JSON.parse(localStorage.getItem('kp-profile-v1') || '{}')); } catch (e) { return PROF_DEF; }
+  }
   function stageRow(code, name, routes, list) {
     return '<div class="row" style="border-bottom:1px solid var(--line);padding-bottom:9px">' +
       '<span class="badge b-info">' + code + '</span>' +
@@ -1538,7 +1797,7 @@ window.MOCK = (function () {
           icon(allowed ? 'chevR' : 'lock', 'ic-sm') + '</span></button>';
       }).join('') + '</div></div>';
   };
-  window.__views1 = { CTAB: function (v) { if (v) CTAB = v; return CTAB; }, CSEL: function (v) { if (v !== undefined) CSEL = v; return CSEL; }, F: F, mcard: mcard, head: head, card: card };
+  window.__views1 = { loadPresets: loadPresets, CTAB: function (v) { if (v) CTAB = v; return CTAB; }, CSEL: function (v) { if (v !== undefined) CSEL = v; return CSEL; }, F: F, mcard: mcard, head: head, card: card };
 })();
 
 /* ===== views2.js ===== */
@@ -1564,7 +1823,8 @@ window.MOCK = (function () {
       '<div class="stat warn"><span class="k">Доля отказов</span><span class="v" style="font-size:22px">' + Math.round(rows.reduce((a, r) => a + r.refuse, 0) / rows.length * 100) + '%</span></div>' +
       '<div class="stat ok"><span class="k">Активных</span><span class="v">' + rows.length + '</span></div></div>' +
       '<div class="tw rv"><div class="toolbar"><span class="small muted">Клик по поставщику — карточка с историей запросов и разобранными ответами</span>' +
-      '<div class="grow"></div><button class="btn sm" data-act="exportSuppliers">' + icon('download', 'ic-sm') + ' ' + T.exportXls + '</button>' +
+      '<div class="grow"></div><button class="btn sm primary" data-act="newSupplier">' + icon('plus', 'ic-sm') + ' ' + T.supplierNew + '</button>' +
+      '<button class="btn sm" data-act="exportSuppliers">' + icon('download', 'ic-sm') + ' ' + T.exportXls + '</button>' +
       '<button class="btn sm" data-act="reqAllSuppliers">' + icon('send', 'ic-sm') + ' Разослать запросы</button></div>' +
       '<div class="tscroll desk"><table class="tbl" style="min-width:900px"><thead><tr>' +
       '<th>Поставщик</th><th>Email</th><th>Бренды</th><th>Запросов</th><th>' + T.responseTime + '</th><th>' + T.refusalRate + '</th><th class="act"></th>' +
@@ -1681,6 +1941,7 @@ window.MOCK = (function () {
   }
 
   /* ============================================================ КАЛЕНДАРЬ (Э2) */
+  let CALW = 'this';
   R.calendar = function () {
     const R2 = DB.requests.slice(0, 18);
     const weeks = [['21–27 сентября', 0], ['28 сентября — 4 октября', 7], ['5–11 октября', 14], ['12–18 октября', 21]];
@@ -1695,7 +1956,7 @@ window.MOCK = (function () {
       '<div class="stat ok"><span class="k">Закрыто в срок</span><span class="v">87%</span></div></div>' +
       '<div class="col rv" style="gap:14px">' + weeks.map((w, wi) => {
         const items = R2.slice(wi * 4, wi * 4 + 4);
-        return '<div class="card"><div class="card-h"><div class="h3">' + esc(w[0]) + '</div>' +
+        return '<div class="card"' + (wi === 0 && CALW === 'this' ? ' id="cal-this"' : '') + '><div class="card-h"><div class="h3">' + esc(w[0]) + '</div>' +
           '<div class="grow"></div>' + (wi === 0 ? '<span class="badge b-warn">текущая неделя</span>' : '') + '</div>' +
           '<div class="card-b" style="padding:0">' + items.map(r => {
             const over = wi === 0 && r.status === 'waiting_supplier';
@@ -1948,7 +2209,7 @@ window.MOCK = (function () {
         '<span class="badge b-neutral">' + esc(r.at.split(' ')[1]) + '</span></div>' +
         '<div class="mc-row"><span>Кто <b>' + esc(r.actor) + '</b></span><span>Дата <b>' + esc(r.at.split(' ')[0]) + '</b></span></div></div>').join('') + '</div></div></div>';
   };
-  window.__views2 = { CSEL: function (v) { if (v !== undefined) SUPSEL = v; return SUPSEL; }, TPL: function (v) { if (v !== undefined) TPL = v; return TPL; }, TPLS: TPLS, AF: AF };
+  window.__views2 = { CALSET: function (v) { if (v !== undefined) CALW = v; return CALW; }, CSEL: function (v) { if (v !== undefined) SUPSEL = v; return SUPSEL; }, TPL: function (v) { if (v !== undefined) TPL = v; return TPL; }, TPLS: TPLS, AF: AF };
 })();
 
 /* ===== views3.js ===== */
@@ -2138,10 +2399,12 @@ window.MOCK = (function () {
       '<div class="stat"><span class="k">' + T.ordersSum + '</span><span class="v" style="font-size:20px">' + U.money(sum) + '</span></div></div>' +
 
       '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">' +
-      card(T.byWeeks, 'Запросы по неделям', '', '<div class="mini-bar">' +
+      card(T.byWeeks, 'Запросы по неделям',
+        '<button class="btn sm" data-act="chartOpen" data-k="Запросы по неделям">' + icon('ext', 'ic-sm') + ' Развернуть</button>', '<div class="mini-bar">' +
         weeks.map((w, i) => '<i style="height:' + Math.round(w / maxW * 100) + '%" title="Неделя ' + (i + 1) + ': ' + w + ' запросов"></i>').join('') +
         '</div><div class="legend"><span>' + icon('trending', 'ic-sm') + ' Средний рост +12% за неделю</span></div>') +
-      card(T.funnel, 'Распределение по статусам', '', '<div class="col" style="gap:9px">' +
+      card(T.funnel, 'Распределение по статусам',
+        '<button class="btn sm" data-act="chartOpen" data-k="Статусы">' + icon('ext', 'ic-sm') + ' Развернуть</button>', '<div class="col" style="gap:9px">' +
         byStatus.filter(x => x.n).map(x => '<div><div class="row sp" style="margin-bottom:4px">' +
           '<span class="small">' + esc(x.label) + '</span><span class="small muted">' + x.n + '</span></div>' +
           '<div class="prog"><i style="width:' + Math.round(x.n / maxS * 100) + '%"></i></div></div>').join('') + '</div>') +
@@ -2269,7 +2532,7 @@ window.MOCK = (function () {
   D('sideClose', () => document.getElementById('side').classList.remove('open'));
   D('collapseSide', () => { U.S.collapsed = !U.S.collapsed; U.saveState(); re(); });
   D('setTheme', k => { U.S.theme = k || (U.S.theme === 'dark' ? 'light' : 'dark'); U.saveState(); toast('Тема: ' + (U.S.theme === 'light' ? T.themeLight : T.themeDark) + '.', 'ok'); re(); });
-  D('themeToggle', () => D['setTheme']());
+  D('themeToggle', () => U.ACT['setTheme']());
   D('setRole', k => {
     const r = k || (document.querySelector('input[name=roleS]:checked') || document.querySelector('input[name=role]:checked') || document.querySelector('input[name=role2]:checked') || {}).value || 'manager';
     U.S.role = r; U.saveState();
@@ -2340,6 +2603,88 @@ window.MOCK = (function () {
       U.num(r.minConfidence), r.quoteTotalRub || '', (window.MOCK.STATUS_MAP[r.status] || {}).label, r.assignee.name])));
   D('filterLowConf', () => { F.low = true; F.page = 1; U.go('requests'); toast('Показаны запросы с низкой уверенностью.', 'ok'); });
 
+
+  /* ---------- поиск, представления и инлайн-правка в таблице ---------- */
+  D('tqSet', v => { F.q = String(v || ''); F.page = 1; re(); });
+  D('tqClear', () => { F.q = ''; F.page = 1; re(); focusTableSearch(); });
+  function focusTableSearch() { setTimeout(() => { const i = document.querySelector('[data-act-input=tqSet]'); if (i) i.focus(); }, 60); }
+  D('toggleRow', id => { F.exp[id] = !F.exp[id]; re(); });
+  D('statusInline', function (v, el) {
+    const id = el.getAttribute('data-id'), r = DB.req(id); if (!r) return;
+    const prev = r.status;
+    if (prev === v) return;
+    if ((window.MOCK.TRANSITIONS[prev] || []).indexOf(v) < 0) {
+      toast(T.invalidMove + ': ' + (window.MOCK.STATUS_MAP[prev] || {}).label + ' → ' + (window.MOCK.STATUS_MAP[v] || {}).label, 'bad');
+      re(); return;
+    }
+    r.status = v;
+    if (v === 'won' || v === 'lost') r.updatedAt = new Date('2026-09-23T18:40:00+03:00').toISOString();
+    DB.addActivity(r, 'Клочко Н.', 'Смена статуса', (window.MOCK.STATUS_MAP[prev] || {}).label + ' → ' + (window.MOCK.STATUS_MAP[v] || {}).label);
+    DB.log('Смена статуса', '№ 2026-' + r.number); DB.persist(); re();
+    toast('Статус 2026-' + r.number + ': ' + (window.MOCK.STATUS_MAP[v] || {}).label + '.', 'ok');
+  });
+  D('assigneeInline', function (v, el) {
+    const id = el.getAttribute('data-id'), r = DB.req(id); if (!r) return;
+    const prev = r.assignee.name; if (prev === v) return;
+    r.assignee = { id: 'm' + (v.length % 9), name: v };
+    DB.addActivity(r, 'Клочко Н.', 'Назначен ответственный', prev + ' → ' + v);
+    DB.log('Назначение ответственного', '№ 2026-' + r.number); DB.persist(); re();
+    toast('Ответственный: ' + v + '.', 'ok');
+  });
+  D('assignInline', id => {
+    const r = DB.req(id); if (!r) return;
+    const html = '<div class="radio-list">' + window.MOCK.MANAGERS.map(m =>
+      '<label class="radio-i' + (r.assignee.name === m[1] ? ' on' : '') + '"><input type="radio" name="asg2" data-act-change="assignInlineSet" data-id="' + r.id + '|' + m[1] + '"' + (r.assignee.name === m[1] ? ' checked' : '') + '> ' + esc(m[1]) + '</label>').join('') + '</div>' +
+      '<div class="fhint" style="margin-top:8px">' + icon('info', 'ic-sm') + ' ' + T.inlineHint + '</div>';
+    mountDlg('dlgAsgInline', 'Назначить ответственного — 2026-' + r.number, html,
+      '<button class="btn" data-act="closeDlg">' + T.close + '</button>');
+  });
+  D('assignInlineSet', function (v, el) {
+    const [id, name] = el.getAttribute('data-id').split('|');
+    const r = DB.req(id); if (!r) return;
+    r.assignee = { id: 'm' + (name.length % 9), name: name };
+    DB.addActivity(r, 'Клочко Н.', 'Назначен ответственный', name);
+    DB.log('Назначение ответственного', '№ 2026-' + r.number); DB.persist();
+    U.closeOverlay(); re(); toast('Ответственный: ' + name + '.', 'ok');
+  });
+  D('savePreset', () => {
+    const cur = { status: F.status, assignee: F.assignee, client: F.client, period: F.period, q: F.q, action: F.action, low: F.low, sort: F.sort, dir: F.dir };
+    mountDlg('dlgPreset', T.presetSave,
+      '<div class="field"><label>' + T.presetName + '</label><input class="inp" id="psName" placeholder="' + esc(T.presetNamePh) + '"></div>' +
+      '<div class="diff"><div class="d-h">Что сохранится</div><pre>' + esc([
+        'Статус: ' + (F.status ? (window.MOCK.STATUS_MAP[F.status] || {}).label : 'все'),
+        'Ответственный: ' + (F.assignee || 'все'),
+        'Клиент: ' + (F.client || 'все'),
+        'Период: ' + (F.period ? F.period + ' дней' : 'весь'),
+        'Поиск: ' + (F.q || '—'),
+        'Только требующие действия: ' + (F.action ? 'да' : 'нет'),
+        'Низкая уверенность: ' + (F.low ? 'да' : 'нет')
+      ].join('\n')) + '</pre></div>' +
+      '<div class="fhint">' + icon('info', 'ic-sm') + ' Представление хранится локально в этом браузере.</div>',
+      '<button class="btn" data-act="closeDlg">' + T.cancel + '</button>' +
+      '<button class="btn primary" data-act="savePresetApply" data-k="' + encodeURIComponent(JSON.stringify(cur)) + '">' + icon('check', 'ic-sm') + ' ' + T.save + '</button>');
+  });
+  D('savePresetApply', (k, el) => {
+    const name = ((document.getElementById('psName') || {}).value || '').trim();
+    if (!name) return toast('Введите название представления.', 'warn');
+    const list = window.__views1.loadPresets();
+    list.push({ name: name, filter: JSON.parse(decodeURIComponent(k)) });
+    try { localStorage.setItem('kp-presets-v1', JSON.stringify(list)); } catch (e) {}
+    U.closeOverlay(); re(); toast('Представление «' + name + '» сохранено.', 'ok');
+  });
+  D('applyPreset', k => {
+    const list = window.__views1.loadPresets(), p = list[+k]; if (!p) return;
+    Object.keys(p.filter).forEach(x => { F[x] = p.filter[x]; });
+    F.page = 1; re(); toast('Представление «' + p.name + '» применено.', 'ok');
+  });
+  D('delPreset', (k, el) => {
+    const list = window.__views1.loadPresets(); const i = +k;
+    if (!list[i]) return;
+    const name = list[i].name; list.splice(i, 1);
+    try { localStorage.setItem('kp-presets-v1', JSON.stringify(list)); } catch (e) {}
+    re(); toast('Представление «' + name + '» удалено.', 'ok');
+  });
+
   /* ---------- карточка запроса ---------- */
   D('openReq', id => { U.go('requests'); location.hash = '#/request/' + id; });
   D('cardTab', k => { window.__views1.CTAB(k); re(); });
@@ -2357,7 +2702,25 @@ window.MOCK = (function () {
   D('openAssign', () => U.overlay('dlgAssign'));
   D('showImages', (k, el) => { const r = curReq(); if (r) r.__imgs = true; re(); toast('Изображения загружены (санитизированы).', 'ok'); });
   D('openAtt', name => toast('Вложение «' + name + '» открыто в безопасном просмотрщике.', 'info'));
-  D('openRawMail', () => toast('Оригинал письма открыт в отдельном окне (только чтение).', 'info'));
+  D('openRawMail', id => {
+    const r = DB.req(id) || curReq(); if (!r) return;
+    mountDlg('dlgRawMail', T.rawMail + ' — 2026-' + r.number,
+      '<div class="row wrap" style="gap:8px;margin-bottom:10px">' +
+        '<span class="badge b-neutral">Только чтение</span>' +
+        '<span class="badge b-info">' + esc(r.email.from) + '</span>' +
+        '<span class="badge b-neutral">' + esc(r.email.date) + '</span></div>' +
+      '<div class="field"><label>От</label><input class="inp" value="' + esc(r.email.from) + '" readonly></div>' +
+      '<div class="field"><label>Кому</label><input class="inp" value="' + esc(r.email.to) + '" readonly></div>' +
+      '<div class="field"><label>Тема</label><input class="inp" value="' + esc(r.email.subject) + '" readonly></div>' +
+      '<div class="field"><label>Тело письма</label><div class="mail-body" style="border:1px solid var(--line);border-radius:var(--r)">' + esc(r.email.body) + '</div></div>' +
+      '<div class="field"><label>Вложения (' + r.email.attachments.length + ')</label><div class="col" style="gap:6px">' +
+        r.email.attachments.map(a => '<div class="att" style="cursor:default"><span style="color:var(--accent)">' + icon(a.type === 'pdf' ? 'file' : 'grid', 'ic-sm') + '</span>' +
+          '<span class="grow"><span class="small" style="font-weight:600">' + esc(a.name) + '</span><span class="tiny muted"> · ' + esc(a.size) + '</span></span></div>').join('') +
+      '</div></div>' +
+      '<div class="fhint">' + icon('shield', 'ic-sm') + ' HTML письма санитизирован: внешние изображения и скрипты заблокированы.</div>',
+      '<button class="btn" data-act="closeDlg">' + T.close + '</button>' +
+      '<button class="btn primary" data-act="mailEdit" data-k="' + r.id + '">' + icon('edit', 'ic-sm') + ' Редактировать</button>');
+  });
   D('posFromMail', article => {
     window.__views1.CTAB('positions');
     re();
@@ -2417,7 +2780,7 @@ window.MOCK = (function () {
 
   /* запросы клиенту и поставщику */
   D('reqArticle', k => { const [id, pid] = k.split('|'); reqArticleDialog(id, pid); });
-  D('reqArticleAll', () => { const r = curReq(); reqArticleDialog(r.id, null); });
+  D('reqArticleAll', id => { const r = DB.req(id) || curReq(); if (r) reqArticleDialog(r.id, null); });
   D('reqPrice', k => { const [id, pid] = k.split('|'); reqPriceDialog(id, pid); });
   D('reqAllPrices', id => { const r = DB.req(id) || curReq(); reqPriceDialog(r.id, null); });
   D('sendArticleReq', () => {
@@ -2623,10 +2986,10 @@ window.MOCK = (function () {
       : 'Dear colleagues,\n\nPlease provide a quotation for the following items:\n\n' + list + '\n\nPlease specify the delivery time and payment terms.\n\nKind regards,\nProcurement Department\nneeklo-lab';
     toast('ИИ составил письмо поставщику (' + (lang === 'ru' ? 'русский' : 'английский') + ').', 'ok');
   });
-  D('aiTpl', mode => D['aiEmail'](mode));
+  D('aiTpl', mode => U.ACT['aiEmail'](mode));
   D('aiCopyText', id => { const el = document.getElementById(id); if (el) { el.select(); try { document.execCommand('copy'); } catch (e) {} toast('Текст скопирован в буфер обмена.', 'ok'); } });
   D('aiApply', () => { toast('Применено.', 'ok'); re(); });
-  D('aiGen', () => D['aiEmail']('polite'));
+  D('aiGen', () => U.ACT['aiEmail']('polite'));
   D('aiThinking', () => toast(T.aiThinking, 'info'));
 
   /* ---------- поставщики ---------- */
@@ -2658,7 +3021,26 @@ window.MOCK = (function () {
   });
   D('exportSuppliers', () => U.exportXls('Поставщики', ['Поставщик','Email','Бренды','Запросов','Время ответа','Доля отказов'],
     window.MOCK.SUPPLIERS.map((s, i) => [s[0], s[1], s[2].join(', '), 4 + (i * 7) % 14, U.num(s[3], 1), Math.round(s[4] * 100) + '%'])));
-  D('newSupplier', () => toast('Форма нового поставщика — заполните контакты и бренды.', 'info'));
+  D('newSupplier', () => {
+    mountDlg('dlgNewSup', T.supplierNew,
+      '<div class="field"><label>Название</label><input class="inp" id="nsName" placeholder="Например, BioLegend"></div>' +
+      '<div class="field"><label>Email для запросов</label><input class="inp" id="nsMail" type="email" placeholder="orders@company.com"></div>' +
+      '<div class="field"><label>Бренды (через запятую)</label><input class="inp" id="nsBrands" placeholder="BioLegend, Sony"></div>' +
+      '<div class="row" style="gap:10px"><div class="field grow"><label>Валюты</label><input class="inp" id="nsCur" value="USD" readonly></div>' +
+      '<div class="field grow"><label>Срок ответа, дн.</label><input class="inp" id="nsDays" type="number" min="0" step="0.1" value="3"></div></div>' +
+      '<div class="fhint">' + icon('info', 'ic-sm') + ' Поставщик попадёт в список запросов цен и в карточки поставщиков.</div>',
+      '<button class="btn" data-act="closeDlg">' + T.cancel + '</button>' +
+      '<button class="btn primary" data-act="newSupplierSave">' + icon('plus', 'ic-sm') + ' ' + T.save + '</button>');
+  });
+  D('newSupplierSave', () => {
+    const g = id => ((document.getElementById(id) || {}).value || '').trim();
+    const name = g('nsName'), mail = g('nsMail');
+    if (!name) return toast('Укажите название поставщика.', 'warn');
+    if (!mail || mail.indexOf('@') < 0) return toast('Укажите корректный email.', 'warn');
+    DB.addSupplier([name, mail, g('nsBrands').split(',').map(x => x.trim()).filter(Boolean), +g('nsDays') || 3, 0]);
+    DB.log('Добавлен поставщик', name); U.closeOverlay(); re();
+    toast(T.supplierAdded + ': ' + name + '.', 'ok');
+  });
 
   /* ---------- воронка ---------- */
   D('pipeView', v => { U.F.pipe.view = v; re(); });
@@ -2711,7 +3093,12 @@ window.MOCK = (function () {
   });
 
   /* ---------- календарь ---------- */
-  D('calToday', () => toast('Показана текущая неделя: 21–27 сентября.', 'ok'));
+  D('calToday', () => {
+    window.__views2.CALSET('this');
+    re();
+    setTimeout(() => { const el = document.getElementById('cal-this'); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 80);
+    toast('Показана текущая неделя: 21–27 сентября.', 'ok');
+  });
   D('exportCalendar', () => U.exportXls('Календарь_сроков', ['Клиент','№','Статус','Срок','Срок_поставки_дн'],
     DB.requests.slice(0, 18).map(r => [r.client.name, '2026-' + r.number, (window.MOCK.STATUS_MAP[r.status] || {}).label, U.dOnly(r.receivedAt), 14])));
 
@@ -2847,7 +3234,7 @@ window.MOCK = (function () {
     DB.log(blocking ? 'Блокировка пользователя' : 'Разблокировка пользователя', u.email);
     re(); toast((blocking ? 'Пользователь заблокирован: ' : 'Пользователь разблокирован: ') + u.name + '.', blocking ? 'warn' : 'ok');
   });
-  D('block', id => D['userBlock'](id));
+  D('block', id => U.ACT['userBlock'](id));
   D('exportUsers', () => U.exportXls('Пользователи', ['Имя','Email','Роль','Последний вход','Статус'],
     DB.users.map(u => [u.name, u.email, ({ manager: T.manager, head: T.head, admin: T.admin }[u.role] || u.role), u.lastLogin, u.status])));
 
@@ -2925,13 +3312,56 @@ window.MOCK = (function () {
       '<div class="ai-out" style="margin-top:12px">Факсимиле подписи и печати применяются при экспорте в XLS.</div>';
     U.overlay('dlgSpec');
   });
+  /* история версий спецификации: просмотр и откат (человек в контуре) */
+  function specVersions(sp) {
+    if (!sp.hist) sp.hist = [{ v: 1, at: sp.date, actor: 'Клочко Н.', what: 'Первая версия', positions: sp.positions }];
+    return sp.hist;
+  }
   D('specVer', id => {
     const s = DB.specs.filter(x => x.id === id)[0]; if (!s) return;
-    toast('Версии ' + s.number + ': v1 — текущая.', 'info');
+    const h = specVersions(s);
+    const rows = h.slice().reverse().map(v =>
+      '<div class="row" style="gap:12px;padding:10px 0;border-bottom:1px solid var(--line)">' +
+      '<span class="badge ' + (v.v === s.version ? 'b-ok' : 'b-neutral') + '">v' + v.v + (v.v === s.version ? ' · текущая' : '') + '</span>' +
+      '<div class="grow"><div class="small" style="font-weight:600">' + esc(v.what) + '</div>' +
+      '<div class="tiny muted">' + esc(v.actor) + ' · ' + esc(v.at) + ' · позиций: ' + v.positions + '</div></div>' +
+      (v.v !== s.version ? '<button class="btn sm" data-act="specRollback" data-k="' + s.id + '|' + v.v + '">' + icon('rotate', 'ic-sm') + ' Откатить</button>' : '') +
+      '</div>').join('');
+    mountDlg('dlgSpecVer', 'Версии ' + s.number,
+      '<div class="row" style="gap:8px;margin-bottom:10px"><span class="badge b-info">' + esc(s.client) + '</span>' +
+      '<span class="badge b-neutral">позиций: ' + s.positions + '</span>' +
+      '<span class="badge ' + (s.status === 'sent' ? 'b-ok' : 'b-warn') + '">' + (s.status === 'sent' ? 'Отправлена' : 'Черновик') + '</span></div>' +
+      '<div class="col" style="gap:0">' + rows + '</div>' +
+      '<div class="field" style="margin-top:14px"><label>Комментарий к новой версии</label><input class="inp" id="spVerNote" placeholder="Например: обновили цену по прайсу от 22.09"></div>' +
+      '<div class="fhint">' + icon('shield', 'ic-sm') + ' Новая версия не уходит клиенту автоматически — только после подтверждения менеджера в КП.</div>',
+      '<button class="btn" data-act="closeDlg">' + T.close + '</button>' +
+      '<button class="btn primary" data-act="specNewVer" data-k="' + s.id + '">' + icon('plus', 'ic-sm') + ' Новая версия</button>');
+  });
+  D('specNewVer', id => {
+    const s = DB.specs.filter(x => x.id === id)[0]; if (!s) return;
+    const note = ((document.getElementById('spVerNote') || {}).value || '').trim();
+    const h = specVersions(s);
+    s.version = s.version + 1;
+    h.push({ v: s.version, at: '23.09.2026', actor: 'Клочко Н.', what: note || 'Правки по позициям и ценам', positions: s.positions });
+    DB.log('Новая версия спецификации', s.number + ' → v' + s.version);
+    U.closeOverlay(); re();
+    toast('Создана версия v' + s.version + ' спецификации ' + s.number + '.', 'ok');
+  });
+  D('specRollback', k => {
+    const [id, v] = String(k).split('|');
+    const s = DB.specs.filter(x => x.id === id)[0]; if (!s) return;
+    const h = specVersions(s);
+    const target = h.filter(x => String(x.v) === String(v))[0]; if (!target) return;
+    const hh = specVersions(s);
+    hh.push({ v: s.version + 1, at: '23.09.2026', actor: 'Клочко Н.', what: 'Откат к v' + v + ' (' + target.what + ')', positions: s.positions });
+    s.version = s.version + 1;
+    DB.log('Откат спецификации', s.number + ' → откат к v' + v);
+    U.closeOverlay(); re();
+    toast('Спецификация ' + s.number + ' откатана к v' + v + '; создана новая версия v' + s.version + '.', 'ok');
   });
   D('exportSpecs', () => U.exportXls('Спецификации', ['Номер','Клиент','Дата','Позиций','Версия','Статус'],
     DB.specs.map(s => [s.number, s.client, s.date, s.positions, 'v' + s.version, s.status])));
-  D('specOpenNew', () => D['specNew']());
+  D('specOpenNew', () => U.ACT['specNew']());
 
   /* ---------- аналитика ---------- */
   D('anPeriod', v => { v3.ANPER(v); re(); toast('Период обновлён.', 'ok'); });
@@ -2939,7 +3369,25 @@ window.MOCK = (function () {
   D('exportAnalytics', () => U.exportXls('Аналитика', ['Клиент','Запросов','Сумма КП'],
     (function () { const c = {}; DB.requests.forEach(r => { c[r.client.name] = c[r.client.name] || { n: 0, s: 0 }; c[r.client.name].n++; c[r.client.name].s += r.quoteTotalRub || 0; });
       return Object.keys(c).map(k => [k, c[k].n, c[k].s]); })()));
-  D('chartOpen', () => toast('График открыт в полном размере.', 'info'));
+  D('chartOpen', k => {
+    const weeks = [4, 7, 5, 9, 6, 11, 8];
+    const max = Math.max.apply(null, weeks);
+    const R2 = DB.requests;
+    const byCat = {};
+    R2.forEach(r => (r.positions || []).forEach(pp => { byCat[pp.category] = (byCat[pp.category] || 0) + (pp.totalRub || 0); }));
+    const cats = Object.keys(byCat).map(c => ({ c: c, v: byCat[c] })).sort((a, b) => b.v - a.v);
+    const maxC = Math.max.apply(null, cats.map(x => x.v).concat([1]));
+    mountDlg('dlgChart', T.chartBig + (k ? ': ' + k : ''),
+      '<div class="diff"><div class="d-h">Запросы по неделям (шт.)</div><div style="padding:14px">' +
+        '<div class="mini-bar" style="height:160px">' + weeks.map((w, i) => '<i style="height:' + Math.round(w / max * 100) + '%" title="Неделя ' + (i + 1) + ': ' + w + '"></i>').join('') + '</div>' +
+        '<div class="legend" style="margin-top:8px"><span>' + icon('trending', 'ic-sm') + ' Итого за период: ' + weeks.reduce((a, b) => a + b, 0) + ' запросов</span></div></div></div>' +
+      '<div class="diff"><div class="d-h">Сумма КП по категориям</div><div style="padding:12px">' +
+        (cats.length ? cats.map(x => '<div style="margin-bottom:8px"><div class="row sp" style="margin-bottom:4px"><span class="small">' + esc(x.c) + '</span><span class="small muted mono">' + U.money(x.v) + '</span></div>' +
+          '<div class="prog"><i style="width:' + Math.round(x.v / maxC * 100) + '%"></i></div></div>').join('') : '<span class="small muted">Нет данных за период.</span>') +
+      '</div></div>',
+      '<button class="btn" data-act="closeDlg">' + T.close + '</button>' +
+      '<button class="btn primary" data-act="exportAnalytics">' + icon('download', 'ic-sm') + ' ' + T.exportXls + '</button>');
+  });
 
   /* ---------- рассылки ---------- */
   D('newsOpen', id => {
@@ -2983,7 +3431,23 @@ window.MOCK = (function () {
     DB.log('Отправка рассылки', q.subject); U.closeOverlay(); re();
     toast('Рассылка «' + q.subject + '» отправлена: ' + q.sent + ' из ' + q.total + '.', 'ok');
   });
-  D('newsImport', () => toast('Файл получателей загружен: 340 адресов.', 'ok'));
+  D('newsImport', () => {
+    mountDlg('dlgNewsImp', T.newsFile,
+      '<div class="field"><label>Файл с адресами (CSV, XLSX)</label><input class="inp" id="niFile" placeholder="recipients.xlsx" value="recipients.xlsx"></div>' +
+      '<div class="field"><label>Колонка с email</label><input class="inp" value="B — E-mail" readonly></div>' +
+      '<div class="diff"><div class="d-h">Предпросмотр разбора</div><pre>zakupki@medlab.ru\ninfo@bioclinic.ru\nsupply@labtech.ru\n… всего 340 адресов\nДубликаты: 4 — будут объединены.\nНекорректные: 2 — пропущены.</pre></div>' +
+      '<div class="fhint">' + icon('shield', 'ic-sm') + ' Список применится к текущей рассылке только после подтверждения.</div>',
+      '<button class="btn" data-act="closeDlg">' + T.cancel + '</button>' +
+      '<button class="btn primary" data-act="newsImportApply">' + icon('upload', 'ic-sm') + ' ' + T.applyShort + '</button>');
+  });
+  D('newsImportApply', () => {
+    const q = DB.newsletters.filter(n => n.status === 'queued' || n.status === 'paused')[0];
+    const file = ((document.getElementById('niFile') || {}).value || 'recipients.xlsx');
+    if (q) { q.total = 336; q.sent = Math.min(q.sent, 336); }
+    DB.log('Импорт получателей', file + ': 336 адресов');
+    U.closeOverlay(); re();
+    toast('Файл «' + file + '» разобран: 336 адресов добавлено в рассылку.', 'ok');
+  });
   D('newsNew', () => {
     mountDlg('dlgNewsNew', 'Новая рассылка',
       '<div class="field"><label>Тема</label><input class="inp" id="nnSubj" placeholder="NEWS: ..."></div>' +
@@ -3017,7 +3481,11 @@ window.MOCK = (function () {
     U.S.authed = true; U.saveState(); toast('Вы вошли в систему как ' + ({ manager: T.manager, head: T.head, admin: T.admin }[U.S.role]) + '.', 'ok');
     U.go('today');
   });
-  D('forgotPass', () => toast('Ссылка восстановления пароля отправлена на ' + ((document.getElementById('lgEmail') || {}).value || 'ваш email') + '.', 'ok'));
+  D('forgotPass', () => {
+    const em = ((document.getElementById('lgEmail') || {}).value || '').trim();
+    if (!em || em.indexOf('@') < 0) return toast('Введите рабочий email — на него придёт ссылка.', 'warn');
+    toast('Если адрес ' + em + ' зарегистрирован, ссылка восстановления отправлена.', 'ok');
+  });
   D('openStand', () => toast('Стенды: ' + Object.keys(U.ROUTES).slice(0, 6).join(', ') + ' — переключаются из меню слева.', 'info'));
   D('hotNext', d => {
     const rows = Array.prototype.slice.call(document.querySelectorAll('[data-act=openReq]'));
@@ -3029,9 +3497,26 @@ window.MOCK = (function () {
     rows[i].classList.add('cur-i'); rows[i].scrollIntoView({ block: 'center' });
     rows[i].style.outline = '2px solid var(--accent)'; setTimeout(() => rows[i].style.outline = '', 900);
   });
-  D('hotConfirm', () => { if (U.isOpen('dlgSend')) D['confirmSend'](); else toast('Горячая клавиша работает в диалоге подтверждения отправки.', 'info'); });
+  D('hotConfirm', () => { if (U.isOpen('dlgSend')) U.ACT['confirmSend'](); else toast('Горячая клавиша работает в диалоге подтверждения отправки.', 'info'); });
   D('openVersionHistory', () => toast('История версий КП — в правой колонке вкладки «КП».', 'info'));
-  D('help', () => toast('Подсказки: / — поиск, J/K — навигация, Ctrl+Enter — подтвердить отправку.', 'info'));
+  D('help', () => {
+    const rows = [
+      ['/', 'Фокус в глобальный поиск'],
+      ['↑ ↓', 'Навигация по результатам поиска'],
+      ['Enter', 'Открыть выбранный результат'],
+      ['Esc', 'Закрыть диалог, панель или очистить поле поиска'],
+      ['Ctrl/⌘ + Enter', 'Подтвердить основное действие открытого диалога'],
+      ['Ctrl/⌘ + B', 'Свернуть или развернуть левое меню'],
+      ['Ctrl/⌘ + K', 'Открыть ИИ-помощника']
+    ];
+    mountDlg('dlgHelp', T.helpTitle,
+      '<div class="col" style="gap:8px">' + rows.map(r =>
+        '<div class="row" style="gap:12px;border-bottom:1px solid var(--line);padding-bottom:8px">' +
+        '<span class="badge b-neutral mono" style="min-width:104px;justify-content:center">' + esc(r[0]) + '</span>' +
+        '<span class="small grow">' + esc(r[1]) + '</span></div>').join('') + '</div>' +
+      '<div class="fhint" style="margin-top:12px">' + icon('shield', 'ic-sm') + ' Прототип работает на локальных демо-данных. Ничего не отправляется клиентам и поставщикам без подтверждения менеджера.</div>',
+      '<button class="btn" data-act="closeDlg">' + T.close + '</button>');
+  });
 
   /* ---------- глобальный поиск: рендер ---------- */
   document.addEventListener('input', function (e) {
@@ -3082,6 +3567,119 @@ window.MOCK = (function () {
     r.innerHTML = html;
   }
   U.renderSearch = renderSearch;
+
+
+
+  /* ---------- профиль и горячие клавиши ---------- */
+  function profSave(patch) {
+    let cur = {};
+    try { cur = JSON.parse(localStorage.getItem('kp-profile-v1') || '{}'); } catch (e) { cur = {}; }
+    Object.assign(cur, patch);
+    try { localStorage.setItem('kp-profile-v1', JSON.stringify(cur)); } catch (e) {}
+  }
+  D('setProfileName', v => { profSave({ name: v }); re(); });
+  D('setProfileRole', v => { profSave({ post: v }); re(); });
+  D('setProfileMail', v => { profSave({ mail: v }); re(); });
+  D('setProfilePhone', v => { profSave({ phone: v }); re(); });
+  D('resetProfile', () => {
+    try { localStorage.removeItem('kp-profile-v1'); } catch (e) {}
+    re(); toast('Реквизиты возвращены к демо-значениям.', 'ok');
+  });
+  D('mockSet', k => U.setMock(k));
+  D('mockRetry', () => {
+    U.setMock('loading');
+    setTimeout(() => { U.setMock('data'); toast('Данные загружены.', 'ok'); }, 900);
+  });
+  D('stateMenu', k => U.setMock(k || 'data'));
+  D('openProfile', () => U.go('profile'));
+  D('hotSide', () => { const f = U.ACT['collapseSide']; if (f) f(); });
+  D('hotAi', () => { const f = U.ACT['aiChat']; if (f) f(U.cur() === 'request' ? ((DB.req(location.hash.split('/')[2]) || {}).id || 'top') : 'top'); });
+
+  /* ---------- письмо: редактирование и ИИ-редактор с diff ---------- */
+  let AIM = { id: null, mode: 'polite' };
+  function aiMailText(r) { return (r.email.work !== undefined && r.email.work !== null) ? r.email.work : r.email.body; }
+  function lineDiff(a, b) {
+    const A = String(a).split('\n'), B = String(b).split('\n'), out = [];
+    for (let i = 0; i < Math.max(A.length, B.length); i++) {
+      const x = A[i], y = B[i];
+      if (x === undefined) out.push('<ins>' + esc(y) + '</ins>');
+      else if (y === undefined) out.push('<del>' + esc(x) + '</del>');
+      else if (x === y) out.push(esc(x));
+      else { out.push('<del>' + esc(x) + '</del>'); out.push('<ins>' + esc(y) + '</ins>'); }
+    }
+    return out.join('\n');
+  }
+  function aiMailDialog() {
+    const r = DB.req(AIM.id); if (!r) return '';
+    const orig = aiMailText(r);
+    const out = U.AI.improve(orig, AIM.mode);
+    AIM.out = out;
+    const modeNames = { polite: T.aiImprove, short: T.aiShorten, formal: T.aiFormal, translate: T.aiTranslate, extract: T.aiCheckArt };
+    return '<div class="ai-bar"><span class="ai-t">' + icon('sparkles', 'ic-sm') + ' ' + T.aiEditMail + '</span>' +
+      Object.keys(modeNames).map(m => '<button class="btn sm' + (AIM.mode === m ? ' primary' : '') + '" data-act="aiMailMode" data-k="' + m + '">' + modeNames[m] + '</button>').join('') + '</div>' +
+      '<div class="row" style="gap:10px;align-items:flex-start">' +
+        '<div class="grow" style="min-width:0"><div class="tiny muted" style="margin-bottom:5px">' + T.mailDraft + ' (до правки)</div>' +
+        '<div class="diff"><pre id="aiMailSrc">' + esc(orig) + '</pre></div></div>' +
+      '</div>' +
+      '<div style="margin-top:12px"><div class="tiny muted" style="margin-bottom:5px">' + T.aiDiff + '</div>' +
+      '<div class="diff"><pre>' + lineDiff(orig, out) + '</pre></div></div>' +
+      '<div class="fhint" style="margin-top:10px">' + icon('shield', 'ic-sm') + ' ИИ предлагает — менеджер подтверждает. В клиентскую переписку уходит только после «' + T.aiApply + '» и отправки.</div>';
+  }
+  function openAiMailDialog() { mountDlg('dlgAiMail', T.aiEditMail, aiMailDialog(),
+    '<button class="btn" data-act="aiMailCancel">' + T.aiCancel + '</button>' +
+    '<button class="btn primary" data-act="aiMailApply">' + icon('check', 'ic-sm') + ' ' + T.aiApply + '</button>'); }
+  D('openAiMail', id => { const r = DB.req(id) || curReq(); if (!r) return; AIM = { id: r.id, mode: 'polite' }; openAiMailDialog(); });
+  D('aiMailMode', k => { AIM.mode = k || 'polite'; openAiMailDialog(); });
+  D('aiMailApply', () => {
+    const r = DB.req(AIM.id); if (!r) return;
+    r.email.work = AIM.out;
+    DB.addActivity(r, 'Клочко Н.', 'Письмо отредактировано ИИ', 'режим: ' + AIM.mode + ', правка подтверждена менеджером');
+    DB.log('ИИ-правка письма', '№ 2026-' + r.number); DB.persist();
+    U.closeOverlay(); re(); toast(T.aiAppliedToast, 'ok');
+  });
+  D('aiMailCancel', () => { U.closeOverlay(); re(); toast('Письмо оставлено без изменений.', 'info'); });
+  D('mailEdit', id => {
+    const r = DB.req(id) || curReq(); if (!r) return;
+    AIM = { id: r.id, mode: AIM.mode || 'polite' };
+    const t = aiMailText(r);
+    mountDlg('dlgMailEdit', 'Редактирование письма — 2026-' + r.number,
+      '<div class="ai-bar"><span class="ai-t">' + icon('sparkles', 'ic-sm') + ' ИИ</span>' +
+      '<button class="btn sm" data-act="mailEditAi">' + T.aiEditMail + '</button>' +
+      '<button class="btn sm" data-act="mailEditOrig">Вернуть оригинал</button></div>' +
+      '<div class="field"><label>Текст письма</label><textarea class="inp" id="meBody" style="min-height:300px">' + esc(t) + '</textarea></div>' +
+      '<div class="fhint">' + icon('info', 'ic-sm') + ' Правка сохраняется как черновик. Оригинал письма остаётся доступен в «' + T.rawMail + '».</div>',
+      '<button class="btn" data-act="closeDlg">' + T.cancel + '</button>' +
+      '<button class="btn primary" data-act="mailEditSave" data-k="' + r.id + '">' + icon('check', 'ic-sm') + ' ' + T.mailDraft + '</button>');
+  });
+  D('mailEditAi', () => {
+    const ta = document.getElementById('meBody'); if (ta) AIM.tmp = ta.value;
+    if (!AIM.id) AIM.id = (location.hash.split('/')[2] || (DB.requests[0] || {}).id);
+    openAiMailDialog0();
+  });
+  function openAiMailDialog0() {
+    const r = DB.req(AIM.id); if (!r) return;
+    if (AIM.tmp !== undefined) r.email.work = AIM.tmp;
+    openAiMailDialog();
+  }
+  D('mailEditOrig', () => { const r = DB.req(location.hash.split('/')[2]) || DB.requests[0]; const ta = document.getElementById('meBody'); if (ta && r) ta.value = r.email.body; toast('Показан оригинал письма.', 'info'); });
+  D('mailEditSave', id => {
+    const r = DB.req(id) || curReq(); if (!r) return;
+    const v = ((document.getElementById('meBody') || {}).value || '');
+    if (!v.trim()) return toast(T.mailEmpty, 'warn');
+    r.email.work = v;
+    DB.addActivity(r, 'Клочко Н.', 'Письмо отредактировано вручную');
+    DB.log('Правка письма', '№ 2026-' + r.number); DB.persist();
+    U.closeOverlay(); re(); toast(T.mailSavedToast, 'ok');
+  });
+  D('mailDraftSave', id => {
+    const r = DB.req(id) || curReq(); if (!r) return;
+    if (r.email.work === undefined || r.email.work === null) r.email.work = r.email.body;
+    DB.persist(); re(); toast(T.mailSavedToast, 'ok');
+  });
+  D('mailResetWork', id => {
+    const r = DB.req(id) || curReq(); if (!r) return;
+    delete r.email.work; DB.persist(); re(); toast('Показан оригинал письма.', 'info');
+  });
 
   /* ---------- hotkeys ---------- */
   document.addEventListener('keydown', function (e) {
@@ -3142,6 +3740,10 @@ window.MOCK = (function () {
         '<span class="s-kbd">/</span>' +
       '</div>' +
       '<div class="grow"></div>' +
+      '<select class="sel state-sel hide-sm" data-act-change="stateMenu" aria-label="' + esc(T.stateLabel) + '" title="' + esc(T.stateLabel) + '">' +
+        [['data', T.stateData], ['loading', T.stateLoading], ['empty', T.stateEmpty], ['error', T.stateError]].map(o =>
+          '<option value="' + o[0] + '"' + (U.mock() === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') +
+      '</select>' +
       '<button class="btn sm hide-sm" data-act="aiChat" data-k="top">' + icon('sparkles', 'ic-sm') + ' ИИ</button>' +
       '<button class="ibtn" data-act="noti" aria-label="Уведомления">' + icon('bell') +
         (c.unread ? '<span class="dot"></span>' : '') + '</button>' +
