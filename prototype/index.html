@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Автоматизация КП — прототип системы · neeklo.studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0E0F0C; --surface:#15170F; --card:#1A1C14; --card-2:#20231A;
+  --ink:#F3F4EE; --ink-muted:#A3A594; --line:rgba(255,255,255,.10); --line-strong:rgba(255,255,255,.22);
+  --lime:#C6F24E; --lime-dim:rgba(198,242,78,.14);
+  --r:18px; --r-nest:12px; --r-pill:999px;
+  --dur:180ms; --ease:cubic-bezier(.22,.61,.36,1);
+  --maxw:1180px;
+}
+[data-theme=light]{
+  --bg:#EFEEE7; --surface:#F7F6F1; --card:#FFFFFF; --card-2:#FAFAF6;
+  --ink:#111310; --ink-muted:#5F6156; --line:rgba(17,19,16,.10); --line-strong:rgba(17,19,16,.22);
+  --lime:#7BAF14; --lime-dim:rgba(123,175,20,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:Onest,system-ui,-apple-system,sans-serif;
+  background:var(--bg); color:var(--ink);
+  font-size:16px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+img,svg{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--lime);outline-offset:3px;border-radius:6px}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 20px}
+.hint{font-size:13.5px;color:var(--ink-muted);line-height:1.5}
+.mono{font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+svg.i{width:20px;height:20px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- topbar ---------- */
+.top{
+  position:sticky; top:0; z-index:30;
+  background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line-strong);
+}
+.topin{display:flex;align-items:center;gap:14px;min-height:64px;max-width:var(--maxw);margin:0 auto;padding:8px 20px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.mark{
+  width:38px;height:38px;border-radius:var(--r-pill);flex:0 0 auto;
+  background:var(--lime);color:#0E0F0C;display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:14px;letter-spacing:-.02em;
+}
+.brand b{display:block;font-size:15px;font-weight:700;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand span{display:block;font-size:12px;color:var(--ink-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topsp{flex:1 1 auto;min-width:0}
+.thbtn{
+  display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;
+  border:1px solid var(--line-strong);border-radius:var(--r-pill);
+  background:var(--card);font-size:13.5px;font-weight:500;
+  transition:transform var(--dur) var(--ease),border-color var(--dur) var(--ease),background var(--dur) var(--ease);
+  white-space:nowrap;
+}
+.thbtn:hover{background:var(--card-2);border-color:var(--lime)}
+.thbtn:active{transform:scale(.97)}
+.thbtn.primary{background:var(--lime);color:#0E0F0C;border-color:transparent;font-weight:700}
+.thbtn-lbl{display:none}
+@media(min-width:560px){.thbtn-lbl{display:inline}}
+
+/* ---------- hero ---------- */
+.hero{padding:56px 0 40px;position:relative;overflow:hidden}
+.hero:before{
+  content:"";position:absolute;inset:-30% -10% auto -10%;height:520px;pointer-events:none;
+  background:radial-gradient(60% 60% at 22% 0%,var(--lime-dim) 0%,transparent 70%);
+}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  border:1px solid var(--line-strong);border-radius:var(--r-pill);
+  padding:6px 14px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted);
+  margin-bottom:22px;background:var(--surface);
+}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--lime);box-shadow:0 0 0 4px var(--lime-dim)}
+h1{font-size:clamp(34px,7.2vw,68px);line-height:1.02;font-weight:800;letter-spacing:-.035em}
+h1 em{font-style:normal;color:var(--lime)}
+.lead{margin-top:20px;font-size:clamp(16px,2.2vw,19px);line-height:1.5;color:var(--ink-muted);max-width:62ch}
+.cta{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px}
+.facts{display:grid;gap:10px;margin-top:38px;grid-template-columns:1fr}
+@media(min-width:620px){.facts{grid-template-columns:repeat(3,1fr)}}
+.fact{border:1px solid var(--line-strong);background:var(--card);border-radius:var(--r);padding:16px}
+.fact b{display:block;font-size:26px;font-weight:800;letter-spacing:-.03em;color:var(--lime)}
+.fact span{font-size:13px;color:var(--ink-muted)}
+
+/* ---------- section ---------- */
+section{padding:34px 0}
+.sechead{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+h2{font-size:clamp(22px,3.4vw,30px);line-height:1.15;font-weight:700;letter-spacing:-.028em}
+.secnum{font-size:13px;font-weight:700;color:var(--lime);letter-spacing:.1em}
+
+/* ---------- stand cards ---------- */
+.stands{display:grid;gap:14px;grid-template-columns:1fr}
+@media(min-width:760px){.stands{grid-template-columns:repeat(2,1fr)}}
+.stand{
+  position:relative;display:block;border:1px solid var(--line-strong);background:var(--card);
+  border-radius:var(--r);padding:22px;overflow:hidden;
+  transition:transform var(--dur) var(--ease),border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease);
+}
+.stand:before{
+  content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--lime);
+  transform:scaleX(0);transform-origin:left;transition:transform 320ms var(--ease);
+}
+.stand:hover{transform:translateY(-3px);border-color:var(--lime);box-shadow:0 18px 40px rgba(0,0,0,.28)}
+.stand:hover:before{transform:scaleX(1)}
+.stand:active{transform:translateY(-1px) scale(.995)}
+.tag{
+  display:inline-flex;align-items:center;gap:6px;border-radius:var(--r-pill);padding:4px 11px;
+  font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  background:var(--lime-dim);color:var(--lime);border:1px solid var(--line-strong);
+}
+.stand h3{margin-top:14px;font-size:20px;line-height:1.2;font-weight:700;letter-spacing:-.025em}
+.stand p{margin-top:8px;font-size:14px;color:var(--ink-muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.chip{border:1px solid var(--line-strong);border-radius:var(--r-pill);padding:3px 10px;font-size:12px;color:var(--ink-muted);background:var(--surface)}
+.go{margin-top:16px;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--lime)}
+.stand:hover .go svg{transform:translateX(3px)}
+.go svg{transition:transform var(--dur) var(--ease)}
+
+/* ---------- steps ---------- */
+.grid2{display:grid;gap:14px;grid-template-columns:1fr}
+@media(min-width:760px){.grid2{grid-template-columns:repeat(2,1fr)}}
+.box{border:1px solid var(--line-strong);background:var(--card);border-radius:var(--r);padding:20px}
+.box h3{font-size:16.5px;font-weight:700;letter-spacing:-.02em;margin-bottom:10px;display:flex;align-items:center;gap:9px}
+.box h3 svg{color:var(--lime)}
+ol.steps{list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:11px}
+ol.steps li{counter-increment:s;display:flex;gap:11px;font-size:14px;color:var(--ink-muted);line-height:1.5}
+ol.steps li:before{
+  content:counter(s);flex:0 0 auto;width:24px;height:24px;border-radius:50%;
+  background:var(--lime-dim);color:var(--lime);border:1px solid var(--line-strong);
+  font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px;
+}
+ol.steps li b{color:var(--ink);font-weight:600}
+.kbd{display:inline-flex;align-items:center;border:1px solid var(--line-strong);border-radius:7px;
+  padding:1px 7px;font-size:12.5px;background:var(--surface);font-variant-numeric:tabular-nums}
+.bar{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:13.5px;color:var(--ink-muted)}
+.bar .track{flex:1;height:8px;border-radius:var(--r-pill);background:var(--surface);border:1px solid var(--line-strong);overflow:hidden}
+.bar .fill{height:100%;background:var(--lime);border-radius:var(--r-pill);width:0;transition:width 900ms var(--ease)}
+
+/* ---------- table ---------- */
+.tblwrap{overflow-x:auto;border:1px solid var(--line-strong);border-radius:var(--r);background:var(--card)}
+table{width:100%;border-collapse:collapse;min-width:560px}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line-strong);font-size:14px;vertical-align:top}
+th{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted);white-space:nowrap;font-weight:700}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--card-2)}
+td.sta{white-space:nowrap;font-weight:600;font-size:13px}
+.ok{color:#9BE07A}.part{color:#F2D25C}.no{color:#FF9E90}
+[data-theme=light] .ok{color:#2E7D32}[data-theme=light] .part{color:#8A6D00}[data-theme=light] .no{color:#B3261E}
+
+/* ---------- footer ---------- */
+footer{border-top:1px solid var(--line-strong);margin-top:26px;padding:26px 0 calc(30px + env(safe-area-inset-bottom))}
+.footin{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center}
+.footin .hint{font-size:13px}
+.flinks{display:flex;gap:16px;flex-wrap:wrap}
+.flinks a{font-size:13.5px;color:var(--ink-muted);min-height:44px;display:inline-flex;align-items:center;border-bottom:1px solid transparent;transition:color var(--dur) var(--ease),border-color var(--dur) var(--ease)}
+.flinks a:hover{color:var(--lime);border-color:var(--lime)}
+
+/* ---------- reveal (scroll-triggered) ---------- */
+.rv{opacity:0;transform:translateY(18px);transition:opacity 620ms var(--ease),transform 620ms var(--ease)}
+.rv.in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){
+  .rv{opacity:1;transform:none;transition:none}
+  *{animation:none!important;transition:none!important}
+  html{scroll-behavior:auto}
+}
+.skip{position:absolute;left:-9999px;top:0;background:var(--lime);color:#0E0F0C;padding:10px 16px;border-radius:0 0 10px 0;z-index:60;font-weight:700}
+.skip:focus{left:0}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Перейти к содержанию</a>
+
+<header class="top">
+  <div class="topin">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">КП</div>
+      <div>
+        <b>Автоматизация КП</b>
+        <span>Прототип · neeklo.studio</span>
+      </div>
+    </div>
+    <div class="topsp"></div>
+    <button class="thbtn" id="themeBtn" type="button" aria-label="Переключить тему">
+      <svg class="i" id="themeIcon" aria-hidden="true"></svg>
+      <span class="thbtn-lbl" id="themeLbl">Тема</span>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="hero wrap">
+    <span class="eyebrow"><span class="dot" aria-hidden="true"></span> Готово к показу заказчику</span>
+    <h1>Одна система вместо почты <em>и Excel</em></h1>
+    <p class="lead">
+      Запрос → распознавание позиций → цена из прайсов → КП → отправка, контроль поставщиков
+      и клиентов, спецификации из PO, аналитика и NEWS-рассылка. Четыре прототипа-стенда
+      по этапам Э1, Э2, Э3 — все переходы и состояния рабочие.
+    </p>
+    <div class="cta">
+      <a class="thbtn primary" href="#stands">
+        <svg class="i" aria-hidden="true"><path d="M4 12h12M12 6l6 6-6 6"/></svg>
+        Открыть стенды
+      </a>
+      <a class="thbtn" href="#how">
+        <svg class="i" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+        Как показывать
+      </a>
+    </div>
+    <div class="facts">
+      <div class="fact rv"><b>4</b><span>стенда: Э1 менеджер, Э1 админ, Э2, Э3</span></div>
+      <div class="fact rv"><b>0</b><span>ошибок JS и переполнений на 360–1440 px</span></div>
+      <div class="fact rv"><b>4</b><span>состояния каждого экрана: данные, загрузка, пусто, ошибка</span></div>
+    </div>
+  </section>
+
+  <section class="wrap" id="stands">
+    <div class="sechead">
+      <span class="secnum">01</span>
+      <h2>Стенды системы</h2>
+    </div>
+    <div class="stands">
+
+      <a class="stand rv" href="https://project-1a0c2ca7e196d4692ad4a19f.clero.so/">
+        <span class="tag">Этап 1</span>
+        <h3>Рабочее место менеджера</h3>
+        <p>Почта, запросы клиентов, распознавание позиций, детерминированный расчёт цены с пошлиной, КП и подтверждение перед отправкой.</p>
+        <div class="chips"><span class="chip">Сегодня</span><span class="chip">Запросы</span><span class="chip">Карточка запроса</span><span class="chip">КП</span><span class="chip">Клиенты</span></div>
+        <span class="go">Открыть стенд <svg class="i" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </a>
+
+      <a class="stand rv" href="https://project-1c2b1e4a92becd607f028005.clero.so/">
+        <span class="tag">Этап 1 · админ</span>
+        <h3>Админ-панель</h3>
+        <p>Прайс-листы и номенклатура, правила расчёта с калькулятором-проверкой, шаблоны писем и XLS, пользователи и журнал действий.</p>
+        <div class="chips"><span class="chip">Прайсы</span><span class="chip">Правила расчёта</span><span class="chip">Шаблоны</span><span class="chip">Пользователи</span><span class="chip">Журнал</span></div>
+        <span class="go">Открыть стенд <svg class="i" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </a>
+
+      <a class="stand rv" href="https://project-b03ad3d2af4dc096d452502e.clero.so/">
+        <span class="tag">Этап 2</span>
+        <h3>Поставщики и контроль</h3>
+        <p>Запросы к поставщикам, разбор ответов, воронка с разрешёнными переходами, календарь сроков и просрочки.</p>
+        <div class="chips"><span class="chip">Воронка</span><span class="chip">Поставщики</span><span class="chip">Входящие запросы</span><span class="chip">Календарь сроков</span></div>
+        <span class="go">Открыть стенд <svg class="i" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </a>
+
+      <a class="stand rv" href="https://project-3a519c2a3aba304ad15a20cc.clero.so/">
+        <span class="tag">Этап 3</span>
+        <h3>Документы, аналитика, рассылка</h3>
+        <p>Мастер спецификаций из PO в три шага, версии документов, аналитика с метриками и выгрузкой, рассылки NEWS, подключения.</p>
+        <div class="chips"><span class="chip">Спецификации</span><span class="chip">Аналитика</span><span class="chip">Рассылки</span><span class="chip">Подключения</span></div>
+        <span class="go">Открыть стенд <svg class="i" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </a>
+
+    </div>
+  </section>
+
+  <section class="wrap" id="how">
+    <div class="sechead">
+      <span class="secnum">02</span>
+      <h2>Как показывать заказчику</h2>
+    </div>
+    <div class="grid2">
+
+      <div class="box rv">
+        <h3><svg class="i" aria-hidden="true"><path d="M12 3l8 4v6c0 5-3.5 7.5-8 8-4.5-.5-8-3-8-8V7z"/></svg> Роли и ограничения</h3>
+        <ol class="steps">
+          <li><span><b>Откройте профиль</b> — иконка пользователя в шапке стенда.</span></li>
+          <li><span><b>Переключите роль</b>: менеджер → руководитель → администратор. Недоступный раздел даёт осмысленный экран «Доступ закрыт», а не пустоту.</span></li>
+          <li><span><b>Покажите принцип «человек в контуре»</b>: отправка клиенту или поставщику всегда через диалог подтверждения.</span></li>
+        </ol>
+      </div>
+
+      <div class="box rv">
+        <h3><svg class="i" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg> Состояния и темы</h3>
+        <ol class="steps">
+          <li><span>Добавьте к адресу <span class="kbd">?mock=loading</span>, <span class="kbd">?mock=empty</span> или <span class="kbd">?mock=error</span> — экран покажет скелетон, пустое состояние с подсказкой или ошибку с кнопкой «Повторить».</span></li>
+          <li><span>Переключите тему кнопкой в шапке — светлая и тёмная одинаково читаемы.</span></li>
+          <li><span>Откройте <span class="kbd">390 px</span> в инструментах разработчика: интерфейс проектировался mobile-first.</span></li>
+        </ol>
+      </div>
+
+      <div class="box rv">
+        <h3><svg class="i" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg> Поиск и горячие клавиши</h3>
+        <ol class="steps">
+          <li><span>Строка поиска в шапке есть на каждом стенде. Наберите номер запроса, клиента, артикул, поставщика или спецификацию.</span></li>
+          <li><span><span class="kbd">/</span> — фокус в поиск, <span class="kbd">↑</span> <span class="kbd">↓</span> — выбор, <span class="kbd">Enter</span> — переход в объект, <span class="kbd">Esc</span> — закрыть.</span></li>
+        </ol>
+      </div>
+
+      <div class="box rv">
+        <h3><svg class="i" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg> Переход между этапами</h3>
+        <ol class="steps">
+          <li><span>В шапке каждого стенда — раздел <b>«Этапы системы»</b> с переходом на остальные стенды.</span></li>
+          <li><span>Сквозные сценарии: нет цены → запрос поставщику → ответ → принять → цена в позиции → КП → спецификация.</span></li>
+        </ol>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="wrap" id="status">
+    <div class="sechead">
+      <span class="secnum">03</span>
+      <h2>Статус по этапам</h2>
+    </div>
+    <div class="tblwrap rv">
+      <table>
+        <caption class="hint" style="text-align:left;padding:12px 14px;caption-side:top">
+          Готовность прототипов-стендов. Проверялось в браузере на живых адресах 23.09.2026.
+        </caption>
+        <thead>
+          <tr><th scope="col">Блок</th><th scope="col">Что сделано</th><th scope="col">Статус</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Поиск</td><td>Глобальный поиск в шапке всех стендов, локальный поиск в списках, подсказка хоткея</td><td class="sta ok">Проверено</td></tr>
+          <tr><td>Кнопки</td><td>Интерактивные элементы стендов имеют обработчики; помеченные заглушки подписаны</td><td class="sta ok">Проверено</td></tr>
+          <tr><td>Вёрстка</td><td>360 / 390 / 768 / 1440 px, светлая и тёмная темы, без переполнения</td><td class="sta ok">Проверено</td></tr>
+          <tr><td>Связность</td><td>Переходы между этапами и сквозные сценарии</td><td class="sta ok">Проверено</td></tr>
+          <tr><td>Состояния</td><td>Четыре состояния на маршрутах, роли и экран 403, уведомления, подтверждения</td><td class="sta ok">Проверено</td></tr>
+          <tr><td>Приёмка</td><td>Lighthouse, выгрузки XLSX, матрица покрытия по ТЗ</td><td class="sta part">В работе</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap footin">
+    <span class="hint">Автоматизация КП · прототип интерфейса · neeklo.studio</span>
+    <nav class="flinks" aria-label="Ссылки на стенды">
+      <a href="https://project-1a0c2ca7e196d4692ad4a19f.clero.so/">Э1 менеджер</a>
+      <a href="https://project-1c2b1e4a92becd607f028005.clero.so/">Э1 админ</a>
+      <a href="https://project-b03ad3d2af4dc096d452502e.clero.so/">Э2</a>
+      <a href="https://project-3a519c2a3aba304ad15a20cc.clero.so/">Э3</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var root=document.documentElement;
+  var btn=document.getElementById('themeBtn'), ic=document.getElementById('themeIcon'), lbl=document.getElementById('themeLbl');
+  var SUN='<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/>';
+  var MOON='<path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/>';
+  function paint(){
+    var dark=root.getAttribute('data-theme')==='dark';
+    ic.innerHTML=dark?SUN:MOON;
+    lbl.textContent=dark?'Тёмная':'Светлая';
+    btn.setAttribute('aria-pressed',String(dark));
+  }
+  try{ var t=localStorage.getItem('kp-hub-theme'); if(t)root.setAttribute('data-theme',t); }catch(e){}
+  paint();
+  btn.addEventListener('click',function(){
+    var next=root.getAttribute('data-theme')==='dark'?'light':'dark';
+    root.setAttribute('data-theme',next); paint();
+    try{ localStorage.setItem('kp-hub-theme',next); }catch(e){}
+  });
+
+  // scroll-triggered stagger
+  var items=[].slice.call(document.querySelectorAll('.rv'));
+  if(!('IntersectionObserver' in window)){ items.forEach(function(e){e.classList.add('in');}); return; }
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(!en.isIntersecting)return;
+      var el=en.target, sibs=[].slice.call(el.parentNode.children).filter(function(x){return x.classList&&x.classList.contains('rv');});
+      var i=Math.max(0,sibs.indexOf(el));
+      el.style.transitionDelay=(i*70)+'ms';
+      el.classList.add('in');
+      io.unobserve(el);
+    });
+  },{rootMargin:'0px 0px -8% 0px',threshold:.12});
+  items.forEach(function(e){io.observe(e);});
+
+  // smooth anchor scroll
+  document.addEventListener('click',function(e){
+    var a=e.target.closest('a[href^="#"]'); if(!a)return;
+    var id=a.getAttribute('href').slice(1); var t=document.getElementById(id); if(!t)return;
+    e.preventDefault();
+    var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    t.scrollIntoView({behavior:reduce?'auto':'smooth',block:'start'});
+    if(history.replaceState)history.replaceState(null,'','#'+id);
+  });
+})();
+</script>
+</body>
+</html>
