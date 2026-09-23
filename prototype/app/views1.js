@@ -8,7 +8,7 @@
   const F = {
     requests: { status: '', assignee: '', client: '', period: '', action: false, low: false, sort: 'date', dir: -1, page: 1,
       per: 12, cols: { number: 1, receivedAt: 1, client: 1, subject: 1, positionsCount: 1, minConfidence: 1, quoteTotalRub: 1, status: 1, assignee: 1, updatedAt: 0 },
-      sel: {} },
+      sel: {}, q: '', exp: {} },
     spec: { step: 1 }, pipe: { view: 'all' }
   };
   U.F = F;
@@ -103,6 +103,14 @@
   R.today = todayView;
 
   /* ============================================================ ВХОДЯЩИЕ ЗАПРОСЫ */
+  /* подсветка совпадений поиска в тексте ячейки */
+  function hi(text, q) {
+    const t = String(text === undefined || text === null ? '' : text);
+    if (!q) return esc(t);
+    const i = t.toLowerCase().indexOf(String(q).toLowerCase());
+    if (i < 0) return esc(t);
+    return esc(t.slice(0, i)) + '<mark class="hit">' + esc(t.slice(i, i + String(q).length)) + '</mark>' + esc(t.slice(i + String(q).length));
+  }
   function fRows() {
     const f = F.requests; let rows = DB.requests.slice();
     if (f.status) rows = rows.filter(r => r.status === f.status);
@@ -110,6 +118,18 @@
     if (f.client) rows = rows.filter(r => r.client.name === f.client);
     if (f.action) rows = rows.filter(r => ['review','need_article','waiting_supplier'].indexOf(r.status) >= 0);
     if (f.low) rows = rows.filter(r => r.minConfidence < 0.7);
+    if (f.period) { const days = +f.period, ref = new Date('2026-09-23T23:59:59'); rows = rows.filter(r => (ref - new Date(r.receivedAt)) / 86400000 <= days); }
+    if (f.q) {
+      const q = f.q.toLowerCase();
+      rows = rows.filter(r => {
+        const inPos = (r.positions || []).some(pp => (pp.article || '').toLowerCase().indexOf(q) >= 0 || (pp.name || '').toLowerCase().indexOf(q) >= 0 || (pp.brand || '').toLowerCase().indexOf(q) >= 0);
+        const inSup = (r.positions || []).some(pp => (pp.supplier || '').toLowerCase().indexOf(q) >= 0);
+        return ('2026-' + r.number).indexOf(q) >= 0 || String(r.number).indexOf(q) >= 0 ||
+          (r.client.name || '').toLowerCase().indexOf(q) >= 0 || (r.client.domain || '').toLowerCase().indexOf(q) >= 0 ||
+          (r.subject || '').toLowerCase().indexOf(q) >= 0 || (r.email && r.email.subject || '').toLowerCase().indexOf(q) >= 0 ||
+          (r.assignee.name || '').toLowerCase().indexOf(q) >= 0 || inPos || inSup;
+      });
+    }
     const s = f.sort, d = f.dir;
     rows.sort((a, b) => {
       let x, y;
@@ -121,6 +141,21 @@
     });
     return rows;
   }
+  function activeFilterCount(f) {
+    return [f.status, f.assignee, f.client, f.period, f.q].filter(Boolean).length + (f.action ? 1 : 0) + (f.low ? 1 : 0);
+  }
+  function presetsBar() {
+    const list = loadPresets();
+    return '<div class="toolbar" style="gap:8px;flex-wrap:wrap">' +
+      '<span class="small muted">' + icon('book', 'ic-sm') + ' ' + T.presets + ':</span>' +
+      (list.length ? list.map((p, i) => '<button class="chip" data-act="applyPreset" data-k="' + i + '" title="' + esc(p.name) + '">' + esc(p.name) + ' <span data-act="delPreset" data-k="' + i + '" class="x" role="button" aria-label="Удалить представление">×</span></button>').join('')
+        : '<span class="tiny muted">Пока нет сохранённых представлений.</span>') +
+      '<button class="btn sm" data-act="savePreset">' + icon('plus', 'ic-sm') + ' ' + T.presetSave + '</button>' +
+      '</div>';
+  }
+  function loadPresets() { try { return JSON.parse(localStorage.getItem('kp-presets-v1') || '[]'); } catch (e) { return []; } }
+  R.__loadPresets = loadPresets;
+
   function requestsView() {
     const f = F.requests, rows = fRows();
     const pages = Math.max(1, Math.ceil(rows.length / f.per));
@@ -132,14 +167,20 @@
       ['minConfidence','Уверенность'],['quoteTotalRub','Сумма КП'],['status','Статус'],['assignee','Ответственный'],['updatedAt','Обновлено']
     ].filter(c => f.cols[c[0]]);
 
+    const afc = activeFilterCount(f);
     return '<div class="content">' +
-      head('Входящие запросы', rows.length + ' запросов по текущему фильтру',
-        '<button class="btn" data-act="resetFilters">' + icon('rotate', 'ic-sm') + ' Сбросить</button>' +
+      head('Входящие запросы', rows.length + ' запросов по текущему фильтру' + (afc ? ' · ' + T.activeFilters + ': ' + afc : ''),
+        '<button class="btn" data-act="resetFilters"' + (afc ? '' : ' disabled') + '>' + icon('rotate', 'ic-sm') + ' Сбросить</button>' +
         '<button class="btn" data-act="exportRequests">' + icon('download', 'ic-sm') + ' ' + T.exportXls + '</button>' +
         '<button class="btn" data-act="openCols">' + icon('cols', 'ic-sm') + ' Колонки</button>') +
 
       '<div class="tw rv">' +
-        '<div class="toolbar">' +
+        '<div class="toolbar"><div class="gsearch">' + icon('search', 'ic-sm') +
+          '<input type="search" value="' + esc(f.q) + '" data-act-input="tqSet" placeholder="' + esc(T.inTable) + '" aria-label="' + esc(T.inTable) + '">' +
+          (f.q ? '<button class="ibtn" data-act="tqClear" aria-label="Очистить поиск">' + icon('x', 'ic-sm') + '</button>' : '') +
+        '</div>' +
+        '<span class="tiny muted hide-sm">' + icon('info', 'ic-sm') + ' ' + T.inlineHint + '</span>' +
+        '<div class="grow"></div>' +
           '<div class="filters desk">' +
             sel('fStatus', 'Статус: все', [['','Статус: все']].concat(window.MOCK.STATUS.map(s => [s[0], s[1]])), f.status, 'fStatusSet') +
             sel('fAssignee', 'Ответственный: все', [['','Ответственный: все']].concat(window.MOCK.MANAGERS.map(m => [m[1], m[1]])), f.assignee, 'fAssigneeSet') +
@@ -158,6 +199,8 @@
           '</div>' +
         '</div>' +
 
+        presetsBar() +
+
         (selCount ? '<div class="toolbar" style="background:var(--accent-soft);border-bottom-color:var(--accent)">' +
           '<b class="small">' + T.selected + ': ' + selCount + '</b>' +
           '<button class="btn sm" data-act="bulkAssign">' + icon('userPlus', 'ic-sm') + ' ' + T.assign + '</button>' +
@@ -170,20 +213,24 @@
           C.map(c => '<th class="sortable' + (f.sort === mapSort(c[0]) ? ' on' : '') + '" data-act="sortBy" data-k="' + mapSort(c[0]) + '">' + c[1] +
             '<span class="ar">' + (f.dir < 0 ? '▼' : '▲') + '</span></th>').join('') +
           '<th class="act"></th></tr></thead><tbody>' +
-          page.map(r => '<tr class="' + (r.minConfidence < 0.7 ? 'low' : '') + (f.sel[r.id] ? ' sel' : '') + '">' +
+          page.map(r => {
+            const exp = !!f.exp[r.id];
+            return '<tr class="' + (r.minConfidence < 0.7 ? 'low' : '') + (f.sel[r.id] ? ' sel' : '') + (exp ? ' exp' : '') + '">' +
             '<td><input type="checkbox" data-act-change="toggleSel" data-id="' + r.id + '"' + (f.sel[r.id] ? ' checked' : '') + ' aria-label="Выбрать строку" style="accent-color:var(--accent);width:16px;height:16px"></td>' +
-            (f.cols.number ? '<td class="mono nowrap">' + (r.unread ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:6px"></span>' : '') + '2026-' + r.number + '</td>' : '') +
+            (f.cols.number ? '<td class="mono nowrap">' + (r.unread ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:6px"></span>' : '') + '2026-' + hi(r.number, f.q) + '</td>' : '') +
             (f.cols.receivedAt ? '<td class="nowrap small">' + U.dt(r.receivedAt) + '</td>' : '') +
-            (f.cols.client ? '<td><b>' + esc(r.client.name) + '</b><div class="tiny muted">' + esc(r.client.domain) + '</div></td>' : '') +
-            (f.cols.subject ? '<td><div class="ellip" style="max-width:280px">' + esc(r.subject) + '</div></td>' : '') +
-            (f.cols.positionsCount ? '<td class="num">' + r.positionsCount + '</td>' : '') +
+            (f.cols.client ? '<td><b>' + hi(r.client.name, f.q) + '</b><div class="tiny muted">' + hi(r.client.domain, f.q) + '</div></td>' : '') +
+            (f.cols.subject ? '<td><div class="ellip" style="max-width:280px" title="' + esc(r.subject) + '">' + hi(r.subject, f.q) + '</div></td>' : '') +
+            (f.cols.positionsCount ? '<td class="num"><button class="lnk" data-act="toggleRow" data-k="' + r.id + '" title="' + esc(exp ? T.collapsePos : T.expandPos) + '">' + r.positionsCount + (exp ? ' ▾' : ' ▸') + '</button></td>' : '') +
             (f.cols.minConfidence ? '<td>' + U.confBadge(r.minConfidence) + '</td>' : '') +
             (f.cols.quoteTotalRub ? '<td class="num">' + U.money(r.quoteTotalRub) + '</td>' : '') +
-            (f.cols.status ? '<td>' + U.statusBadge(r.status) + '</td>' : '') +
-            (f.cols.assignee ? '<td class="small nowrap">' + esc(r.assignee.name) + '</td>' : '') +
+            (f.cols.status ? '<td class="cell-edit">' + inlineSel('statusInline', r.id, window.MOCK.STATUS, r.status, 'st') + '</td>' : '') +
+            (f.cols.assignee ? '<td class="cell-edit">' + inlineSel('assigneeInline', r.id, window.MOCK.MANAGERS.map(m => [m[1], m[1]]), r.assignee.name, 'asg') + '</td>' : '') +
             (f.cols.updatedAt ? '<td class="small nowrap">' + U.dt(r.updatedAt) + '</td>' : '') +
-            '<td class="act"><button class="btn sm" data-act="openReq" data-k="' + r.id + '">' + T.open + '</button></td>' +
-            '</tr>').join('') +
+            '<td class="act"><button class="btn sm" data-act="toggleRow" data-k="' + r.id + '" aria-label="' + esc(exp ? T.collapsePos : T.expandPos) + '">' + icon(exp ? 'chevD' : 'chevR', 'ic-sm') + '</button>' +
+              '<button class="btn sm primary" data-act="openReq" data-k="' + r.id + '">' + T.open + '</button></td>' +
+            '</tr>' + (exp ? expandRow(r) : '');
+          }).join('') +
           '</tbody></table></div>' +
 
         '<div class="mcards">' + page.map(mcard).join('') + '</div>' +
@@ -205,6 +252,39 @@
   }
   const mapSort = k => k === 'receivedAt' ? 'date' : k === 'quoteTotalRub' ? 'sum' : k === 'client' ? 'client' : k === 'status' ? 'status' : 'date';
   function range(a, b) { const o = []; for (let i = a; i <= Math.min(b, a + 4); i++) o.push(i); return o; }
+  /* инлайн-выбор в ячейке строки: работает без ухода со страницы */
+  function inlineSel(act, rid, opts, val, kind) {
+    return '<select class="cell-sel" data-act-change="' + act + '" data-id="' + rid + '" data-kind="' + kind + '" aria-label="' + esc(act) + '">' +
+      opts.map(o => '<option value="' + esc(o[0]) + '"' + (String(val) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') +
+      '</select>';
+  }
+  /* быстрый просмотр позиций прямо в таблице */
+  function expandRow(r) {
+    const C = [['number','№'],['receivedAt','Дата'],['client','Клиент'],['subject','Тема'],['positionsCount','Позиций'],
+      ['minConfidence','Уверенность'],['quoteTotalRub','Сумма КП'],['status','Статус'],['assignee','Ответственный'],['updatedAt','Обновлено']];
+    const colspan = C.filter(c => F.requests.cols[c[0]]).length + 2;
+    const total = r.positions.reduce((a, p) => a + (p.totalRub || 0), 0);
+    return '<tr class="subrow"><td></td><td colspan="' + colspan + '">' +
+      '<div class="subwrap">' +
+        '<div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">' +
+          '<span class="badge b-info">Позиций: ' + r.positions.length + '</span>' +
+          '<span class="badge b-neutral">Нет артикула: ' + r.positions.filter(p => !p.article).length + '</span>' +
+          '<span class="badge b-warn">Нет цены: ' + r.positions.filter(p => p.clientPriceRub === undefined).length + '</span>' +
+          '<span class="badge b-ok">Сумма: ' + U.money(total) + '</span>' +
+        '</div>' +
+        '<div class="tscroll"><table class="tbl sub"><thead><tr><th>Артикул</th><th>Наименование</th><th>Бренд</th><th>Кол-во</th><th>Цена клиенту</th><th>Сумма</th></tr></thead><tbody>' +
+        r.positions.map(p => '<tr><td class="mono">' + esc(p.article || '—') + '</td><td>' + esc(p.name) + '</td><td class="small">' + esc(p.brand || '—') + '</td>' +
+          '<td class="num">' + p.qty + ' ' + esc(p.unit) + '</td><td class="num">' + (p.clientPriceRub === undefined ? '<span class="badge b-bad">нет цены</span>' : U.money(p.clientPriceRub)) + '</td>' +
+          '<td class="num">' + (p.totalRub === undefined ? '—' : U.money(p.totalRub)) + '</td></tr>').join('') +
+        '</tbody></table></div>' +
+        '<div class="row" style="gap:8px;margin-top:10px">' +
+          '<button class="btn sm primary" data-act="openReq" data-k="' + r.id + '">' + icon('edit', 'ic-sm') + ' Открыть и доработать</button>' +
+          '<button class="btn sm" data-act="reqArticleAll" data-k="' + r.id + '">' + icon('at', 'ic-sm') + ' Запросить артикулы</button>' +
+          '<button class="btn sm" data-act="reqAllPrices" data-k="' + r.id + '">' + icon('truck', 'ic-sm') + ' Запросить цены</button>' +
+          '<button class="btn sm" data-act="assignInline" data-k="' + r.id + '">' + icon('userPlus', 'ic-sm') + ' Назначить</button>' +
+        '</div>' +
+      '</div></td></tr>';
+  }
   function sel(id, ph, opts, val, act) {
     return '<select class="sel" id="' + id + '" data-act-change="' + act + '" aria-label="' + esc(ph) + '">' +
       opts.map(o => '<option value="' + esc(o[0]) + '"' + (String(val) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>';
@@ -292,12 +372,25 @@
   /* --- письмо --- */
   function emailZone(r) {
     const marks = r.positions.filter(p => p.article).map(p => p.article);
-    let txt = esc(r.email.body);
+    const isDraft = !!r.email.work;
+    let txt = esc(isDraft ? r.email.work : r.email.body);
     marks.forEach(a => { txt = txt.replace(new RegExp('(' + a + ')', 'g'), '<mark data-act="posFromMail" data-k="' + a + '">$1</mark>'); });
     return '<div class="grid rv" style="grid-template-columns:minmax(0,2fr) minmax(280px,1fr)">' +
-      '<div class="mail"><div class="mail-h"><div class="h3">' + esc(r.email.subject) + '</div>' +
+      '<div class="mail"><div class="mail-h"><div class="row" style="gap:8px;flex-wrap:wrap">' +
+          '<div class="h3 grow">' + esc(r.email.subject) + '</div>' +
+          (isDraft ? '<span class="badge b-info">' + T.mailDraft + '</span>' : '<span class="badge b-neutral">Оригинал</span>') +
+        '</div>' +
         '<div class="mail-meta" style="margin-top:6px">' + icon('mail', 'ic-sm') + ' ' + esc(r.email.from) + ' → ' + esc(r.email.to) +
-        '<span>·</span><span>' + esc(r.email.date) + '</span></div></div>' +
+        '<span>·</span><span>' + esc(r.email.date) + '</span></div>' +
+        '<div class="toolbar" style="margin:10px -14px 0;border-top:1px solid var(--line);border-bottom:0;flex-wrap:wrap">' +
+          '<button class="btn sm" data-act="mailEdit" data-k="' + r.id + '">' + icon('edit', 'ic-sm') + ' Редактировать текст</button>' +
+          '<button class="btn sm primary" data-act="openAiMail" data-k="' + r.id + '">' + icon('wand', 'ic-sm') + ' ' + T.aiEditMail + '</button>' +
+          '<button class="btn sm" data-act="mailDraftSave" data-k="' + r.id + '">' + icon('check', 'ic-sm') + ' ' + T.mailDraft + '</button>' +
+          (isDraft ? '<button class="btn sm" data-act="mailResetWork" data-k="' + r.id + '">' + icon('rotate', 'ic-sm') + ' К оригиналу</button>' : '') +
+          '<div class="grow"></div>' +
+          '<button class="btn sm" data-act="openRawMail" data-k="' + r.id + '">' + icon('mail', 'ic-sm') + ' ' + T.rawMail + '</button>' +
+        '</div>' +
+        '</div>' +
         '<div class="mail-body">' + txt + '</div>' +
         '<div style="padding:0 14px 14px">' +
           (r.__imgs ? '<div class="blocked-img">' + icon('image', 'ic-sm') + ' Изображения загружены. </div>'
@@ -486,6 +579,7 @@
       '<button class="btn sm" data-act="aiSummary">' + icon('activity', 'ic-sm') + ' ' + T.aiSummary + '</button>' +
       '<button class="btn sm" data-act="aiReply">' + icon('wand', 'ic-sm') + ' ' + T.aiReply + '</button>' +
       (place === 'email' ? '<button class="btn sm" data-act="aiSuggest">' + icon('tag', 'ic-sm') + ' Определить артикулы</button>' : '') +
+      (place === 'email' ? '<button class="btn sm primary" data-act="openAiMail" data-k="' + r.id + '">' + icon('edit', 'ic-sm') + ' ' + T.aiEditMail + '</button>' : '') +
       '<button class="btn sm" data-act="aiChat" data-k="' + r.id + '">' + icon('chat', 'ic-sm') + ' ' + T.aiAsk + '</button>' +
       '</div>' +
       '<div id="aiOut"></div></div>';
@@ -623,9 +717,21 @@
     return '<div class="content" style="max-width:820px">' +
       head(T.profile, T.profileAbout) +
       '<div class="card pad rv" style="margin-bottom:14px"><div class="row" style="gap:14px">' +
-      '<span class="ava" style="width:52px;height:52px;font-size:18px">КН</span>' +
-      '<div class="grow"><div class="h2">Клочко Никита</div><div class="small muted">klochko@neeklo-lab.ru · ' + esc(roleName) + '</div></div>' +
+      '<span class="ava" style="width:52px;height:52px;font-size:18px">' + esc(prof().name.split(' ').map(w => w[0] || '').slice(0, 2).join('')) + '</span>' +
+      '<div class="grow"><div class="h2">' + esc(prof().name) + '</div><div class="small muted">' + esc(prof().mail) + ' · ' + esc(prof().post) + ' · ' + esc(roleName) + '</div></div>' +
       '<button class="btn" data-act="switchRole">' + icon('user', 'ic-sm') + ' Сменить роль</button></div></div>' +
+
+      '<div class="card rv" style="margin-bottom:14px"><div class="card-h"><div class="h3">' + T.requisites + '</div></div>' +
+      '<div class="card-b"><div class="row" style="gap:10px;flex-wrap:wrap">' +
+        '<div class="field grow" style="min-width:200px"><label>ФИО</label><input class="inp" data-edit="setProfileName" value="' + esc(prof().name) + '" aria-label="ФИО"></div>' +
+        '<div class="field grow" style="min-width:200px"><label>' + T.position + '</label><input class="inp" data-edit="setProfileRole" value="' + esc(prof().post) + '" aria-label="' + T.position + '"></div>' +
+      '</div><div class="row" style="gap:10px;flex-wrap:wrap">' +
+        '<div class="field grow" style="min-width:200px"><label>Email</label><input class="inp" data-edit="setProfileMail" value="' + esc(prof().mail) + '" aria-label="Email"></div>' +
+        '<div class="field grow" style="min-width:200px"><label>' + T.phone + '</label><input class="inp" data-edit="setProfilePhone" value="' + esc(prof().phone) + '" aria-label="' + T.phone + '"></div>' +
+      '</div>' +
+      '<div class="row" style="gap:8px;margin-top:10px"><span data-flag class="save-flag">' + icon('check', 'ic-sm') + ' ' + T.saved + '</span>' +
+      '<div class="grow"></div><button class="btn sm" data-act="resetProfile">Вернуть демо-значения</button></div>' +
+      '<div class="fhint" style="margin-top:8px">' + icon('info', 'ic-sm') + ' Данные подставляются в подписи писем и в шаблоны ответов.</div></div></div>' +
 
       '<div class="card rv" style="margin-bottom:14px"><div class="card-h"><div class="h3">' + T.profileTheme + '</div></div>' +
       '<div class="card-b"><div class="seg"><button class="' + (U.S.theme === 'light' ? 'on' : '') + '" data-act="setTheme" data-k="light">' + icon('sun', 'ic-sm') + ' ' + T.themeLight + '</button>' +
@@ -653,6 +759,10 @@
       '</div></div>' +
       dlgAi(null) + dlgRole() + '</div>';
   };
+  const PROF_DEF = { name: 'Клочко Никита', post: 'Руководитель отдела продаж', mail: 'klochko@neeklo-lab.ru', phone: '+7 495 123-45-67' };
+  function prof() {
+    try { return Object.assign({}, PROF_DEF, JSON.parse(localStorage.getItem('kp-profile-v1') || '{}')); } catch (e) { return PROF_DEF; }
+  }
   function stageRow(code, name, routes, list) {
     return '<div class="row" style="border-bottom:1px solid var(--line);padding-bottom:9px">' +
       '<span class="badge b-info">' + code + '</span>' +
@@ -686,5 +796,5 @@
           icon(allowed ? 'chevR' : 'lock', 'ic-sm') + '</span></button>';
       }).join('') + '</div></div>';
   };
-  window.__views1 = { CTAB: function (v) { if (v) CTAB = v; return CTAB; }, CSEL: function (v) { if (v !== undefined) CSEL = v; return CSEL; }, F: F, mcard: mcard, head: head, card: card };
+  window.__views1 = { loadPresets: loadPresets, CTAB: function (v) { if (v) CTAB = v; return CTAB; }, CSEL: function (v) { if (v !== undefined) CSEL = v; return CSEL; }, F: F, mcard: mcard, head: head, card: card };
 })();

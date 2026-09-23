@@ -184,10 +184,12 @@
       '<div class="stat"><span class="k">' + T.ordersSum + '</span><span class="v" style="font-size:20px">' + U.money(sum) + '</span></div></div>' +
 
       '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">' +
-      card(T.byWeeks, 'Запросы по неделям', '', '<div class="mini-bar">' +
+      card(T.byWeeks, 'Запросы по неделям',
+        '<button class="btn sm" data-act="chartOpen" data-k="Запросы по неделям">' + icon('ext', 'ic-sm') + ' Развернуть</button>', '<div class="mini-bar">' +
         weeks.map((w, i) => '<i style="height:' + Math.round(w / maxW * 100) + '%" title="Неделя ' + (i + 1) + ': ' + w + ' запросов"></i>').join('') +
         '</div><div class="legend"><span>' + icon('trending', 'ic-sm') + ' Средний рост +12% за неделю</span></div>') +
-      card(T.funnel, 'Распределение по статусам', '', '<div class="col" style="gap:9px">' +
+      card(T.funnel, 'Распределение по статусам',
+        '<button class="btn sm" data-act="chartOpen" data-k="Статусы">' + icon('ext', 'ic-sm') + ' Развернуть</button>', '<div class="col" style="gap:9px">' +
         byStatus.filter(x => x.n).map(x => '<div><div class="row sp" style="margin-bottom:4px">' +
           '<span class="small">' + esc(x.label) + '</span><span class="small muted">' + x.n + '</span></div>' +
           '<div class="prog"><i style="width:' + Math.round(x.n / maxS * 100) + '%"></i></div></div>').join('') + '</div>') +

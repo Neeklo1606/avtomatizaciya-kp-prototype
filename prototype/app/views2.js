@@ -20,7 +20,8 @@
       '<div class="stat warn"><span class="k">Доля отказов</span><span class="v" style="font-size:22px">' + Math.round(rows.reduce((a, r) => a + r.refuse, 0) / rows.length * 100) + '%</span></div>' +
       '<div class="stat ok"><span class="k">Активных</span><span class="v">' + rows.length + '</span></div></div>' +
       '<div class="tw rv"><div class="toolbar"><span class="small muted">Клик по поставщику — карточка с историей запросов и разобранными ответами</span>' +
-      '<div class="grow"></div><button class="btn sm" data-act="exportSuppliers">' + icon('download', 'ic-sm') + ' ' + T.exportXls + '</button>' +
+      '<div class="grow"></div><button class="btn sm primary" data-act="newSupplier">' + icon('plus', 'ic-sm') + ' ' + T.supplierNew + '</button>' +
+      '<button class="btn sm" data-act="exportSuppliers">' + icon('download', 'ic-sm') + ' ' + T.exportXls + '</button>' +
       '<button class="btn sm" data-act="reqAllSuppliers">' + icon('send', 'ic-sm') + ' Разослать запросы</button></div>' +
       '<div class="tscroll desk"><table class="tbl" style="min-width:900px"><thead><tr>' +
       '<th>Поставщик</th><th>Email</th><th>Бренды</th><th>Запросов</th><th>' + T.responseTime + '</th><th>' + T.refusalRate + '</th><th class="act"></th>' +
@@ -137,6 +138,7 @@
   }
 
   /* ============================================================ КАЛЕНДАРЬ (Э2) */
+  let CALW = 'this';
   R.calendar = function () {
     const R2 = DB.requests.slice(0, 18);
     const weeks = [['21–27 сентября', 0], ['28 сентября — 4 октября', 7], ['5–11 октября', 14], ['12–18 октября', 21]];
@@ -151,7 +153,7 @@
       '<div class="stat ok"><span class="k">Закрыто в срок</span><span class="v">87%</span></div></div>' +
       '<div class="col rv" style="gap:14px">' + weeks.map((w, wi) => {
         const items = R2.slice(wi * 4, wi * 4 + 4);
-        return '<div class="card"><div class="card-h"><div class="h3">' + esc(w[0]) + '</div>' +
+        return '<div class="card"' + (wi === 0 && CALW === 'this' ? ' id="cal-this"' : '') + '><div class="card-h"><div class="h3">' + esc(w[0]) + '</div>' +
           '<div class="grow"></div>' + (wi === 0 ? '<span class="badge b-warn">текущая неделя</span>' : '') + '</div>' +
           '<div class="card-b" style="padding:0">' + items.map(r => {
             const over = wi === 0 && r.status === 'waiting_supplier';
@@ -404,5 +406,5 @@
         '<span class="badge b-neutral">' + esc(r.at.split(' ')[1]) + '</span></div>' +
         '<div class="mc-row"><span>Кто <b>' + esc(r.actor) + '</b></span><span>Дата <b>' + esc(r.at.split(' ')[0]) + '</b></span></div></div>').join('') + '</div></div></div>';
   };
-  window.__views2 = { CSEL: function (v) { if (v !== undefined) SUPSEL = v; return SUPSEL; }, TPL: function (v) { if (v !== undefined) TPL = v; return TPL; }, TPLS: TPLS, AF: AF };
+  window.__views2 = { CALSET: function (v) { if (v !== undefined) CALW = v; return CALW; }, CSEL: function (v) { if (v !== undefined) SUPSEL = v; return SUPSEL; }, TPL: function (v) { if (v !== undefined) TPL = v; return TPL; }, TPLS: TPLS, AF: AF };
 })();

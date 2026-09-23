@@ -128,6 +128,22 @@
     noAccess:'Раздел недоступен для текущей роли',
     searchPh:'Поиск: номер, клиент, артикул, поставщик…',
     saved:'Сохранено', unsaved:'Есть несохранённые изменения',
+    inTable:'Поиск по таблице: клиент, тема, артикул…', presets:'Мои представления', presetSave:'Сохранить представление',
+    presetName:'Название представления', expandPos:'Показать позиции', collapsePos:'Скрыть позиции',
+    activeFilters:'Активных фильтров', inlineHint:'Статус и ответственного можно менять прямо в строке.',
+    discount:'Скидка, %', aiEditMail:'ИИ-редактор письма', aiImprove:'Улучшить', aiShorten:'Сократить',
+    aiFormal:'Официальный тон', aiTranslate:'Перевести на русский', aiCheckArt:'Проверить артикулы',
+    aiDiff:'Что изменит ИИ', aiApply:'Применить', aiCancel:'Оставить как было', mailDraft:'Черновик письма',
+    rawMail:'Оригинал письма', requisites:'Реквизиты', position:'Должность', phone:'Телефон',
+    saveRequisites:'Сохранить реквизиты', helpTitle:'Горячие клавиши и подсказки',
+    supplierNew:'Новый поставщик', supplierAdded:'Поставщик добавлен', chartBig:'График', newsFile:'Выбрать файл получателей',
+    mailSavedToast:'Черновик письма сохранён.', aiAppliedToast:'Изменения ИИ применены к письму.',
+    discountApplied:'Скидка применена к позиции.', articleNotFound:'В номенклатуре такого артикула нет — введите вручную.',
+    applyShort:'Применить', mailEmpty:'Текст письма пуст.', presetNamePh:'Например: Просрочка поставщиков',
+    emptyTitle:'Здесь пока пусто', emptyText:'Данных для этого раздела нет. Измените фильтры или вернитесь на «Сегодня».',
+    emptyAction:'Показать данные', errorTitle:'Не удалось загрузить данные',
+    errorText:'Сервис не ответил. Проверьте подключение и повторите — ничего не потеряно.', errorRetry:'Повторить',
+    stateLabel:'Состояние экрана', stateData:'Обычное', stateLoading:'Загрузка', stateEmpty:'Пусто', stateError:'Ошибка',
     nothingFound:'Ничего не найдено', nothingFoundD:'Измените запрос или сбросьте фильтры.',
     allDone:'Все запросы обработаны', allDoneD:'Новых писем нет. Последняя проверка почты: сегодня в 09:12.',
     requiresAction:'Требует действия', queueReview:'Очередь на проверку', waiting:'Ожидание',
@@ -459,6 +475,18 @@
     const a = el.getAttribute('data-act-change');
     if (ACT[a]) ACT[a](el.value, el, e);
   }, false);
+  /* живой ввод: поиск по таблице и другие поля с мгновенной реакцией */
+  document.addEventListener('input', function (e) {
+    const el = e.target.closest('[data-act-input]');
+    if (!el) return;
+    const a = el.getAttribute('data-act-input');
+    clearTimeout(el.__it);
+    el.__it = setTimeout(function () { if (ACT[a]) ACT[a](el.value, el, e); }, 160);
+  }, false);
+  document.addEventListener('keydown', function (e) {
+    const el = e.target.closest && e.target.closest('[data-act-input]');
+    if (el && e.key === 'Escape') { el.value = ''; const a = el.getAttribute('data-act-input'); if (ACT[a]) ACT[a]('', el, e); el.blur(); }
+  }, true);
 
   /* клавиатура: Esc, / — поиск, J/K — навигация по списку, Ctrl+Enter — подтвердить */
   document.addEventListener('keydown', function (e) {
@@ -466,6 +494,8 @@
     const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement && document.activeElement.tagName);
     if (e.key === '/' && !typing) { e.preventDefault(); focusSearch(); return; }
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && ACT['hotConfirm']) { ACT['hotConfirm'](); return; }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B') && ACT['hotSide']) { e.preventDefault(); ACT['hotSide'](); return; }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K') && ACT['hotAi']) { e.preventDefault(); ACT['hotAi'](); return; }
     if (!typing && (e.key === 'j' || e.key === 'J') && ACT['hotNext']) ACT['hotNext'](1);
     if (!typing && (e.key === 'k' || e.key === 'K') && ACT['hotNext']) ACT['hotNext'](-1);
   });
@@ -542,8 +572,35 @@
       if (p.supplierPrice === undefined || !p.supplierCurrency) { p.clientPriceRub = undefined; p.totalRub = undefined; return; }
       const rule = this.rules.filter(r => r.cat === p.category)[0] || { duty: 5, markup: 18 };
       p.dutyPct = rule.duty;
-      p.clientPriceRub = Math.round(p.supplierPrice * this.rateFor(p.supplierCurrency) * (1 + rule.duty / 100) * (1 + rule.markup / 100));
+      const disc = Math.max(0, Math.min(90, +(p.discount || 0)));
+      const base = p.supplierPrice * this.rateFor(p.supplierCurrency) * (1 + rule.duty / 100) * (1 + rule.markup / 100);
+      p.clientPriceRub = Math.round(base * (1 - disc / 100));
       p.totalRub = p.clientPriceRub * p.qty;
+    },
+    /* номенклатура для автокомплита артикулов: артикул → {name, brand, cat, price, cur} */
+    articleIndex() {
+      if (this.__artIdx) return this.__artIdx;
+      const idx = {};
+      (this.pricelists || []).forEach(pl => (pl.rows || []).forEach(r => {
+        if (r && r.article) idx[r.article] = { name: r.name, brand: r.brand, cat: r.cat, price: r.price, cur: r.cur };
+      }));
+      (this.requests || []).forEach(rq => (rq.positions || []).forEach(pp => { if (pp.article) idx[pp.article] = { name: pp.name, brand: pp.brand, cat: pp.category, price: pp.supplierPrice, cur: pp.supplierCurrency || 'USD' }; }));
+      this.__artIdx = idx;
+      return idx;
+    },
+    articleSuggest(q) {
+      const idx = this.articleIndex(); const qq = String(q || '').toLowerCase();
+      return Object.keys(idx).filter(a => a.toLowerCase().indexOf(qq) >= 0).slice(0, 8).map(a => ({ article: a, info: idx[a] }));
+    },
+    /* поставщики: базовые из моков + добавленные пользователем */
+    suppliers() {
+      const extra = (function () { try { return JSON.parse(localStorage.getItem('kp-sup-extra') || '[]'); } catch (e) { return []; } })();
+      return (window.MOCK.SUPPLIERS || []).concat(extra);
+    },
+    addSupplier(row) {
+      const extra = (function () { try { return JSON.parse(localStorage.getItem('kp-sup-extra') || '[]'); } catch (e) { return []; } })();
+      extra.push(row);
+      try { localStorage.setItem('kp-sup-extra', JSON.stringify(extra)); } catch (e) {}
     },
     counts() {
       const R = this.requests;
@@ -600,6 +657,69 @@
     render(true);
   }
   const RENDERERS = {};
+
+  /* Состояния экрана: data (обычное), loading, empty, error — по ТЗ раздел 10.
+     Переключение: ?mock=loading|empty|error (как у остальных стендов) или UI.MOCK(). */
+  const STATES = ['data', 'loading', 'empty', 'error'];
+  let MOCKSTATE = 'data';
+  let mockTimer = null;
+  function readMockFromUrl() {
+    try {
+      const q = new URLSearchParams(location.search).get('mock');
+      if (STATES.indexOf(q) >= 0) MOCKSTATE = q;
+    } catch (e) {}
+  }
+  function setMock(v) {
+    MOCKSTATE = STATES.indexOf(v) >= 0 ? v : 'data';
+    try {
+      const u = new URL(location.href);
+      if (MOCKSTATE === 'data') u.searchParams.delete('mock'); else u.searchParams.set('mock', MOCKSTATE);
+      history.replaceState(null, '', u.toString());
+    } catch (e) {}
+    if (mockTimer) { clearTimeout(mockTimer); mockTimer = null; }
+    render(true);
+    if (MOCKSTATE === 'loading') mockTimer = setTimeout(() => setMock('data'), 2600);
+  }
+  readMockFromUrl();
+
+  function skeleton(route) {
+    const rows = route === 'requests' ? 8 : 4;
+    return '<div class="content">' +
+      '<div class="row" style="align-items:flex-end;gap:16px;margin-bottom:16px">' +
+        '<div class="grow"><div class="sk" style="height:26px;width:280px;border-radius:6px"></div>' +
+        '<div class="sk" style="height:14px;width:380px;max-width:60%;border-radius:6px;margin-top:9px"></div></div>' +
+        '<div class="sk" style="height:38px;width:120px;border-radius:var(--r-sm)"></div>' +
+        '<div class="sk" style="height:38px;width:120px;border-radius:var(--r-sm)"></div></div>' +
+      '<div class="grid rv" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:16px">' +
+        [0, 1, 2, 3].map(() => '<div class="card pad"><div class="sk" style="height:12px;width:70%;border-radius:6px"></div>' +
+          '<div class="sk" style="height:22px;width:45%;border-radius:6px;margin-top:10px"></div></div>').join('') +
+      '</div>' +
+      '<div class="tw"><div class="toolbar"><span class="small muted">Загружаю данные…</span>' +
+        '<div class="grow"></div><span class="small muted">Осталось немного</span></div>' +
+        '<div style="padding:14px">' + Array.from({ length: rows }).map(() => '<div class="sk sk-row"></div>').join('') + '</div></div></div>';
+  }
+  function stateWrap(kind, title, text, actions) {
+    const cls = kind === 'error' ? 'err-state' : 'empty';
+    return '<div class="content"><div class="' + cls + '">' +
+      '<span class="ei">' + icon(kind === 'error' ? 'alertC' : 'search') + '</span>' +
+      '<h3 class="h2">' + esc(title) + '</h3><p class="muted">' + esc(text) + '</p>' +
+      '<div class="row" style="margin-top:6px">' + actions + '</div></div></div>';
+  }
+  function stateView(route) {
+    if (MOCKSTATE === 'loading') return skeleton(route);
+    if (MOCKSTATE === 'empty') {
+      return stateWrap('empty', T.emptyTitle, T.emptyText,
+        '<button class="btn primary" data-act="mockSet" data-k="data">' + icon('refresh', 'ic-sm') + ' ' + T.emptyAction + '</button>' +
+        '<button class="btn" data-act="go" data-k="today">' + icon('home', 'ic-sm') + ' На «Сегодня»</button>');
+    }
+    if (MOCKSTATE === 'error') {
+      return stateWrap('error', T.errorTitle, T.errorText,
+        '<button class="btn primary" data-act="mockRetry">' + icon('refresh', 'ic-sm') + ' ' + T.errorRetry + '</button>' +
+        '<button class="btn" data-act="go" data-k="today">' + icon('home', 'ic-sm') + ' На «Сегодня»</button>');
+    }
+    return null;
+  }
+
   function render(force) {
     const r = S.authed ? cur() : 'login';
     const t = Date.now();
@@ -610,8 +730,9 @@
     const view = document.getElementById('view');
     if (!view) return;
     const fn = RENDERERS[r] || RENDERERS.today;
+    const st = stateView(r);
     if (!roleCan(r)) { view.innerHTML = shell.accessDenied(r); }
-    else view.innerHTML = fn();
+    else view.innerHTML = st || fn();
     view.querySelector('.content') && view.querySelector('.content').scrollIntoView({ block: 'start' });
     window.scrollTo({ top: 0, behavior: 'auto' });
     reveal(view);
@@ -640,6 +761,7 @@
     overlay: overlay, isOpen: isOpen, togglePanel: togglePanel, reveal: reveal,
     money: money, money2: money2, num: num, dt: dt, dOnly: dOnly, esc: esc,
     conf: conf, confBadge: confBadge, statusBadge: statusBadge, toneCls: toneCls,
-    exportXls: exportXls, AI: AI, shell: shell, closeSearch: closeSearch
+    exportXls: exportXls, AI: AI, shell: shell, closeSearch: closeSearch,
+    mock: () => MOCKSTATE, setMock: setMock
   };
 })();

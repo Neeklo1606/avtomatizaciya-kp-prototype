@@ -46,6 +46,10 @@
         '<span class="s-kbd">/</span>' +
       '</div>' +
       '<div class="grow"></div>' +
+      '<select class="sel state-sel hide-sm" data-act-change="stateMenu" aria-label="' + esc(T.stateLabel) + '" title="' + esc(T.stateLabel) + '">' +
+        [['data', T.stateData], ['loading', T.stateLoading], ['empty', T.stateEmpty], ['error', T.stateError]].map(o =>
+          '<option value="' + o[0] + '"' + (U.mock() === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') +
+      '</select>' +
       '<button class="btn sm hide-sm" data-act="aiChat" data-k="top">' + icon('sparkles', 'ic-sm') + ' ИИ</button>' +
       '<button class="ibtn" data-act="noti" aria-label="Уведомления">' + icon('bell') +
         (c.unread ? '<span class="dot"></span>' : '') + '</button>' +

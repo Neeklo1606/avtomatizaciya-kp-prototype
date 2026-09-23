@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Автоматизация КП — рабочий прототип</title>
+<meta name="description" content="Кликабельный прототип системы автоматизации коммерческих предложений: почта, распознавание артикулов, цены из прайсов, расчёт с пошлиной, КП в XLS, поставщики, спецификации, аналитика и рассылка.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://media.clero.so/automation/buffer/org_52/space_103/agent_248/bd96ad09b3e64fdab1224434f288cd07_bundle.css">
+<style>
+#boot{font:15px/1.5 Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+color:#E8E6DF;background:#14171A;min-height:100vh;display:grid;place-items:center;margin:0;text-align:center}
+#boot b{display:block;font-size:22px;letter-spacing:-.02em;margin-bottom:8px}
+#boot span{color:#9AA3A8}
+</style>
+</head>
+<body>
+<div id="boot"><div><b>Автоматизация КП</b><span>Загружаю рабочий прототип…</span></div></div>
+<div id="app" class="app"></div>
+<noscript><p style="padding:20px">Для прототипа нужен включённый JavaScript.</p></noscript>
+<script src="https://media.clero.so/automation/buffer/org_52/space_103/agent_248/70509d6b983b4d6787c036eed7e0711a_bundle.js" onerror="document.getElementById('boot').innerHTML='<div><b>Не удалось загрузить прототип</b><span>Проверьте подключение к интернету и обновите страницу.</span></div>'"></script>
+<script>
+(function(){
+  var t=setInterval(function(){
+    if(window.UI&&window.UI.render){
+      var b=document.getElementById('boot'); if(b) b.remove(); clearInterval(t);
+    }
+  },120);
+  setTimeout(function(){
+    var b=document.getElementById('boot');
+    if(b&&window.UI&&window.UI.render){b.remove();}
+  },8000);
+})();
+</script>
+</body>
+</html>
