@@ -28,8 +28,7 @@
       html += '<div class="side-sec">' + esc(sec) + '</div>';
       items.forEach(k => {
         const it = U.ROUTES[k], b = badgeFor(k);
-        html += '<button class="nav-i' + (U.S.route === k ? ' on' : '') + '" data-act="go" data-k="' + k + '"' +
-          (U.S.collapsed ? ' title="' + esc(it.t) + '"' : '') + '>' + icon(it.icon) +
+        html += '<button class="nav-i' + (U.S.route === k ? ' on' : '') + '" data-act="go" data-k="' + k + '" data-title="' + esc(it.t) + '" aria-label="' + esc(it.t) + '">' + icon(it.icon) +
           '<span class="lbl grow">' + esc(it.t) + '</span>' +
           (b !== '' && b !== 0 ? '<span class="cnt">' + b + '</span>' : '') + '</button>';
       });
@@ -44,6 +43,7 @@
         '<span class="s-ic">' + icon('search', 'ic-sm') + '</span>' +
         '<input type="search" placeholder="' + esc(T.searchPh) + '" aria-label="' + esc(T.searchPh) + '">' +
         '<span class="s-kbd">/</span>' +
+        '<button class="s-clear" data-act="searchClear" aria-label="Очистить поиск" tabindex="-1">' + icon('x', 'ic-sm') + '</button>' +
       '</div>' +
       '<div class="grow"></div>' +
       '<select class="sel state-sel hide-sm" data-act-change="stateMenu" aria-label="' + esc(T.stateLabel) + '" title="' + esc(T.stateLabel) + '">' +
@@ -255,8 +255,7 @@
         '<nav class="nav" id="nav"></nav>' +
         '<div class="side-foot">' +
           '<button class="nav-i" data-act="help">' + icon('help') + '<span class="lbl grow">' + T.hotkeys + '</span></button>' +
-          '<button class="nav-i" data-act="openStand">' + icon('external') + '<span class="lbl grow">' + T.stages + '</span></button>' +
-          '<div class="tiny" style="padding:8px 10px 0">Прототип · демо-данные локально · v2.0</div>' +
+          '<button class="nav-i" data-act="openStand" data-title="' + esc(T.stages) + '">' + icon('external') + '<span class="lbl grow">' + T.stages + '</span></button>' +
         '</div>' +
       '</aside>' +
       '<div class="main">' +

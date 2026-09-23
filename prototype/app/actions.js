@@ -39,7 +39,12 @@
   /* ---------- глобальный поиск ---------- */
   let sq = '', scur = -1, sres = [];
   D('focusSearch', () => { const i = document.querySelector('#gSearch input'); if (i) i.focus(); });
-  D('searchClear', () => { const i = document.querySelector('#gSearch input'); if (i) { i.value = ''; sq = ''; renderSearch(); } });
+  D('searchClear', () => {
+    const i = document.querySelector('#gSearch input');
+    const w = document.getElementById('gSearch');
+    if (i) { i.value = ''; sq = ''; renderSearch(); i.focus(); }
+    if (w) w.classList.remove('has-val');
+  });
   D('sresPick', k => { const it = sres[+k]; if (!it) return; U.closeSearch(); it.fn(); });
   D('searchAll', () => { U.closeSearch(); U.go('requests'); toast('Показаны все запросы. Уточните поиск строкой поиска.', 'info'); });
 
@@ -582,8 +587,16 @@
     window.__views2.CALSET('this');
     re();
     setTimeout(() => { const el = document.getElementById('cal-this'); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 80);
-    toast('Показана текущая неделя: 21–27 сентября.', 'ok');
+    toast('Показан текущий день: 23 сентября.', 'ok');
   });
+  D('calDay', k => {
+    const n = parseInt(k, 10) || 23;
+    toast('Выбран день: ' + n + ' сентября. Сроки показаны в списке ниже.', 'info');
+    const el = document.querySelector('#app .cal-list');
+    if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  });
+  D('calPrev', () => toast('Показан сентябрь 2026 — предыдущий месяц вне демо-периода.', 'info'));
+  D('calNext', () => toast('Показан сентябрь 2026 — следующий месяц вне демо-периода.', 'info'));
   D('exportCalendar', () => U.exportXls('Календарь_сроков', ['Клиент','№','Статус','Срок','Срок_поставки_дн'],
     DB.requests.slice(0, 18).map(r => [r.client.name, '2026-' + r.number, (window.MOCK.STATUS_MAP[r.status] || {}).label, U.dOnly(r.receivedAt), 14])));
 
@@ -1005,7 +1018,11 @@
 
   /* ---------- глобальный поиск: рендер ---------- */
   document.addEventListener('input', function (e) {
-    if (e.target.closest('#gSearch')) { sq = e.target.value.trim(); renderSearch(); }
+    if (e.target.closest('#gSearch')) {
+      sq = e.target.value.trim(); renderSearch();
+      const w = document.getElementById('gSearch');
+      if (w) w.classList.toggle('has-val', sq.length > 0);
+    }
     const el = e.target.closest('[data-edit]'); if (el && el.hasAttribute('data-k') && el.getAttribute('data-edit') === 'findArticle') { if (el.value.length > 3) runFind(el.value); }
   }, false);
   function renderSearch() {

@@ -140,33 +140,101 @@
   /* ============================================================ КАЛЕНДАРЬ (Э2) */
   let CALW = 'this';
   R.calendar = function () {
-    const R2 = DB.requests.slice(0, 18);
-    const weeks = [['21–27 сентября', 0], ['28 сентября — 4 октября', 7], ['5–11 октября', 14], ['12–18 октября', 21]];
+    const R2 = DB.requests.slice(0, 24);
+    /* текущий месяц стенда — сентябрь 2026 */
+    const YEAR = 2026, MONTH = 8; /* 8 = сентябрь */
+    const MONTHS = ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
+    const WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+    const TODAY = 23;
+    const daysInMonth = new Date(YEAR, MONTH + 1, 0).getDate();
+    /* неделя начинается с понедельника */
+    const firstDow = (new Date(YEAR, MONTH, 1).getDay() + 6) % 7;
+    const prevDays = new Date(YEAR, MONTH, 0).getDate();
+
+    /* раскладываем запросы по дням получения (срок ответа поставщика — +14 дней) */
+    const byDay = {};
+    const push = (day, ev) => { (byDay[day] = byDay[day] || []).push(ev); };
+    R2.forEach(r => {
+      const m = String(r.receivedAt).match(/^\d{4}-(\d{2})-(\d{2})/);
+      if (!m) return;
+      const d = parseInt(m[2], 10);
+      const waiting = r.status === 'waiting_supplier';
+      push(d, {
+        txt: (r.client.name || '') + ' · № 2026-' + r.number,
+        tone: waiting ? 'bad' : (r.minConfidence < 0.7 ? 'warn' : 'info'),
+        id: r.id,
+        label: waiting ? T.overdue : 'в срок'
+      });
+    });
+
+    const stats = {
+      over: R2.filter(r => r.status === 'waiting_supplier').length,
+      week: Object.keys(byDay).filter(d => +d >= TODAY && +d <= TODAY + 6).reduce((a, d) => a + byDay[d].length, 0),
+      rem: Object.keys(byDay).reduce((a, d) => a + byDay[d].length, 0),
+      done: 87
+    };
+
+    /* строим ячейки: хвост прошлого месяца, текущий, начало следующего */
+    let cells = '';
+    const cell = (day, out, evs) => {
+      const isToday = !out && day === TODAY;
+      const shown = (evs || []).slice(0, 2);
+      const rest = (evs || []).length - shown.length;
+      return '<button class="cal-cell' + (out ? ' out' : '') + (isToday ? ' today' : '') + '"' +
+        ' data-act="calDay" data-k="' + day + '" aria-label="' + day + ' ' + MONTHS[MONTH] + '">' +
+        '<span class="cal-d">' + day + '</span>' +
+        shown.map(e => '<span class="cal-ev ' + e.tone + '" title="' + esc(e.txt) + '">' + esc(e.txt) + '</span>').join('') +
+        (rest > 0 ? '<span class="cal-more">ещё ' + rest + '</span>' : '') +
+        '</button>';
+    };
+    for (let i = firstDow - 1; i >= 0; i--) cells += cell(prevDays - i, true, null);
+    for (let d = 1; d <= daysInMonth; d++) cells += cell(d, false, byDay[d]);
+    const tail = (7 - ((firstDow + daysInMonth) % 7)) % 7;
+    for (let d = 1; d <= tail; d++) cells += cell(d, true, null);
+
     return '<div class="content">' +
       head('Календарь сроков', 'Сроки ответов поставщиков, напоминания и просрочки',
         '<button class="btn" data-act="calToday">' + icon('target', 'ic-sm') + ' Сегодня</button>' +
         '<button class="btn" data-act="exportCalendar">' + icon('download', 'ic-sm') + ' ' + T.exportXls + '</button>') +
-      '<div class="grid rv" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:16px">' +
-      '<div class="stat bad"><span class="k">Просрочено</span><span class="v">' + R2.filter(r => r.status === 'waiting_supplier').length + '</span></div>' +
-      '<div class="stat warn"><span class="k">На этой неделе</span><span class="v">' + R2.filter(r => r.status === 'waiting_supplier').length + 3 + '</span></div>' +
-      '<div class="stat info"><span class="k">Напоминаний</span><span class="v">4</span></div>' +
-      '<div class="stat ok"><span class="k">Закрыто в срок</span><span class="v">87%</span></div></div>' +
-      '<div class="col rv" style="gap:14px">' + weeks.map((w, wi) => {
-        const items = R2.slice(wi * 4, wi * 4 + 4);
-        return '<div class="card"' + (wi === 0 && CALW === 'this' ? ' id="cal-this"' : '') + '><div class="card-h"><div class="h3">' + esc(w[0]) + '</div>' +
-          '<div class="grow"></div>' + (wi === 0 ? '<span class="badge b-warn">текущая неделя</span>' : '') + '</div>' +
-          '<div class="card-b" style="padding:0">' + items.map(r => {
-            const over = wi === 0 && r.status === 'waiting_supplier';
-            return '<div class="row" style="padding:11px 15px;border-bottom:1px solid var(--line);gap:12px">' +
-              '<span class="badge ' + (over ? 'b-bad' : 'b-info') + '">' + (over ? T.overdue : 'в срок') + '</span>' +
-              '<div class="grow"><div class="small" style="font-weight:600">' + esc(r.client.name) + ' · № 2026-' + r.number + '</div>' +
-              '<div class="tiny muted">' + esc(r.subject) + '</div></div>' +
-              '<span class="small muted nowrap">' + U.dOnly(r.receivedAt) + '</span>' +
-              U.statusBadge(r.status) +
-              '<button class="btn sm" data-act="openReq" data-k="' + r.id + '">Открыть</button></div>';
-          }).join('') + '</div></div>';
-      }).join('') + '</div></div>';
+      '<div class="grid rv" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:16px">' +
+      '<div class="stat bad"><span class="k">Просрочено</span><span class="v">' + stats.over + '</span></div>' +
+      '<div class="stat warn"><span class="k">На этой неделе</span><span class="v">' + stats.week + '</span></div>' +
+      '<div class="stat info"><span class="k">Напоминаний</span><span class="v">' + stats.rem + '</span></div>' +
+      '<div class="stat ok"><span class="k">Закрыто в срок</span><span class="v">' + stats.done + '%</span></div></div>' +
+
+      '<div class="cal-bar">' +
+        '<button class="ibtn" data-act="calPrev" aria-label="Предыдущий месяц">' + icon('chevL') + '</button>' +
+        '<span class="cal-title">' + MONTHS[MONTH] + ' ' + YEAR + '</span>' +
+        '<button class="ibtn" data-act="calNext" aria-label="Следующий месяц">' + icon('chevR') + '</button>' +
+        '<div class="grow"></div>' +
+        '<span class="legend">' +
+          '<span class="att"><i class="dot dot-bad"></i> просрочено</span>' +
+          '<span class="att"><i class="dot dot-warn"></i> низкая уверенность</span>' +
+          '<span class="att"><i class="dot dot-info"></i> в срок</span>' +
+        '</span>' +
+      '</div>' +
+
+      '<div class="cal-month rv">' +
+        '<div class="cal-head">' + WD.map(w => '<span>' + w + '</span>').join('') + '</div>' +
+        '<div class="cal-grid" id="cal-this">' + cells + '</div>' +
+      '</div>' +
+
+      '<div class="card rv" style="margin-top:16px"><div class="card-h"><div class="h3 grow">Ближайшие сроки</div>' +
+      '<span class="tiny muted">' + R2.length + ' записей</span></div>' +
+      '<div class="card-b cal-list" style="padding:0">' +
+      R2.slice(0, 6).map(r => {
+        const over = r.status === 'waiting_supplier';
+        return '<div class="row">' +
+          '<span class="badge ' + (over ? 'b-bad' : 'b-info') + '">' + (over ? T.overdue : 'в срок') + '</span>' +
+          '<div class="grow"><div class="small" style="font-weight:600">' + esc(r.client.name) + ' · № 2026-' + r.number + '</div>' +
+          '<div class="tiny muted">' + esc(r.subject) + '</div></div>' +
+          '<span class="small muted nowrap">' + U.dOnly(r.receivedAt) + '</span>' +
+          U.statusBadge(r.status) +
+          '<button class="btn sm" data-act="openReq" data-k="' + r.id + '">Открыть</button></div>';
+      }).join('') + '</div></div>' +
+    '</div>';
   };
+
 
   /* ============================================================ ПРАЙСЫ (Э1 настройки) */
   R.pricelists = function () {
