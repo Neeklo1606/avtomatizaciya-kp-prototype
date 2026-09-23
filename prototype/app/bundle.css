@@ -1376,3 +1376,11 @@ table.tbl tbody tr.exp{background:var(--surface-2)}
 .cal-bar .dot-warn{background:var(--warn-bg)}
 .cal-bar .dot-info{background:var(--info-bg)}
 .cal-bar .att{background:var(--card-solid)}
+
+/* Метрика-ссылка: строка со стрелкой выровнена в одну линию, стрелка не съезжает */
+.stat.link .tiny{display:flex;align-items:center;gap:6px;line-height:1.25;min-height:18px}
+.stat.link .tiny svg{flex:0 0 auto;opacity:.7;transition:transform var(--dur) var(--ease),opacity var(--dur) var(--ease)}
+.stat.link:hover .tiny svg{transform:translateX(3px);opacity:1}
+@media (max-width:520px){
+  .stat.link .tiny{flex-wrap:wrap;gap:4px}
+}
