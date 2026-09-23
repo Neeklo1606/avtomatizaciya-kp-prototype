@@ -558,9 +558,14 @@ table.tbl select.badge-sel.st-neutral:hover{filter:brightness(.97);border-color:
 .mail-meta{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
 .mail-body{padding:16px;font-size:14px;white-space:pre-wrap;line-height:1.6}
 mark{background:var(--accent-soft);color:inherit;border-radius:3px;padding:0 2px;cursor:pointer}
+#boot{position:fixed;inset:0;z-index:9999;font:15px/1.5 Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+color:#E8E6DF;background:#14171A;display:grid;place-items:center;margin:0;text-align:center}
+#boot b{display:block;font-size:22px;letter-spacing:-.02em;margin-bottom:8px}
+#boot span{color:#9AA3A8}
 </style>
 </head>
 <body>
+<div id="boot"><div><b>Автоматизация КП</b><span>Загружаю рабочий прототип…</span></div></div>
 <div id="app" class="app"></div>
 <noscript><p style="padding:20px">Для прототипа нужен включённый JavaScript.</p></noscript>
 <script>
@@ -4449,6 +4454,14 @@ window.MOCK = (function () {
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
+})();
+</script>
+<script>
+(function(){
+  function hide(){var b=document.getElementById('boot');
+    if(b&&window.UI&&window.UI.render){b.remove();return true;} return false;}
+  var t=setInterval(function(){ if(hide()) clearInterval(t); },100);
+  setTimeout(hide,6000);
 })();
 </script>
 </body>
