@@ -363,7 +363,7 @@ window.MOCK = (function () {
     category:'Категория', supPrice:'Цена поставщика', source:'Источник цены', duty:'Пошлина',
     clientPrice:'Цена для клиента', amount:'Сумма', conf:'Уверенность',
     needArticle:'Нужен артикул', needPrice:'Цена не найдена', requestClient:'Запросить у клиента',
-    requestSupplier:'Запросить у поставщика', addPos:'Добавить позицию', mergeDup:'Объединить дубли',
+    requestSupplier:'Найти цену у поставщика', addPos:'Добавить позицию', mergeDup:'Объединить дубли',
     totalNet:'Итого без пошлины', totalDuty:'Пошлина', total:'Итого', rate:'Курс',
     formQuote:'Сформировать КП', previewSend:'Предпросмотр и отправка', checkPos:'Проверьте позиции',
     unchecked:'непроверенных', aiEdit:'Улучшить письмо с ИИ', aiReply:'Составить ответ с ИИ',
@@ -371,7 +371,7 @@ window.MOCK = (function () {
     aiTitle:'ИИ-помощник', aiHint:'Помогает с письмами, артикулами и расчётами. Все изменения применяются только после подтверждения.',
     aiApply:'Применить', aiCopy:'Копировать', aiGen:'Сгенерировать', aiThinking:'ИИ думает…',
     downloadXls:'Скачать XLS', saveDraft:'Сохранить черновик', sendClient:'Отправить клиенту',
-    version:'Версия', versions:'Версии КП',
+    version:'Версия', versions:'Версии КП', verFiles:'Файлы прошлых версий КП', verActual:'Актуальная', verView:'Просмотреть', verOf:'Версия', verAuthor:'Автор',
     syncNow:'Синхронизировать сейчас', lastSync:'Последняя синхронизация', rows:'Строк',
     importReport:'Отчёт об импорте', mapping:'Сопоставление колонок', findArticle:'Поиск по артикулам',
     matrix:'Ассортиментная матрица', dutyPct:'Пошлина по категории', markup:'Наценка',
@@ -854,6 +854,8 @@ window.MOCK = (function () {
     const h = (location.hash || '').replace(/^#\/?/, '');
     const base = h.split('/')[0];
     if (base === 'request') return 'request';
+    /* D-6: у мастера спецификации собственный маршрут specs/new */
+    if (h === 'specs/new') return 'specs';
     return ROUTES[h] ? h : 'today';
   }
   let renderFn = null, lastRender = 0;
@@ -1016,7 +1018,11 @@ window.MOCK = (function () {
     }
   };
 
-  window.addEventListener('hashchange', function () { render(true); });
+  window.addEventListener('hashchange', function () {
+    /* D-6: прямой заход на #/specs/new всегда открывает мастер на шаге 1 */
+    if ((location.hash || '') === '#/specs/new') { var _f = window.UI && window.UI.F && window.UI.F.spec; if (_f) _f.step = 1; }
+    render(true);
+  });
 
   /* ---------------- публичный API ---------------- */
   window.UI = {
@@ -1514,7 +1520,7 @@ window.MOCK = (function () {
             '<td>' + U.confBadge(p.confidence) + '</td>' +
             '<td class="act"><div class="row" style="gap:3px">' +
               (noArt ? '<button class="ibtn" title="' + T.requestClient + '" data-act="reqArticle" data-k="' + r.id + '|' + p.id + '" style="width:32px;height:32px">' + icon('at', 'ic-sm') + '</button>' : '') +
-              (noPr ? '<button class="ibtn" title="' + T.requestSupplier + '" data-act="reqPrice" data-k="' + r.id + '|' + p.id + '" style="width:32px;height:32px">' + icon('truck', 'ic-sm') + '</button>' : '') +
+              (noPr ? '<button class="btn sm" data-noprice-act="' + r.id + '|' + p.id + '" title="' + T.requestSupplier + '" data-act="findprice" data-req="' + r.id + '" data-k="' + r.id + '|' + p.id + '">' + icon('truck', 'ic-sm') + ' ' + esc(T.requestSupplier) + '</button>' : '') +
               '<label class="ibtn" title="Проверено" style="width:32px;height:32px;cursor:pointer">' +
                 '<input type="checkbox" data-act-change="toggleReviewed" data-id="' + r.id + '|' + p.id + '"' + (p.reviewed ? ' checked' : '') + ' style="accent-color:var(--accent);width:15px;height:15px" aria-label="Позиция проверена">' +
               '</label>' +
@@ -1599,11 +1605,31 @@ window.MOCK = (function () {
           (q.sentAt ? '<div class="badge b-ok" style="margin-top:10px">' + icon('checkCircle', 'ic-sm') + ' Отправлено ' + esc(q.sentAt) + '</div>' +
             '<div class="fhint" style="margin-top:6px">Файл на Яндекс Диске: <span class="mono">/КП/2026/КП-2026-0' + (900 + r.number) + '.xls</span></div>' : '') +
         '</div></div>' +
-        '<div class="card"><div class="card-h"><div class="h3">' + T.versions + '</div></div><div class="card-b">' +
-          v === 1 ? '<div class="small muted">Это первая версия КП.</div>' :
-          '<div class="col" style="gap:6px">' + Array.from({ length: v }, (_, i) => '<div class="row"><span class="badge b-neutral">v' + (i + 1) + '</span><span class="small grow">КП-2026-0' + (900 + r.number) + '</span><button class="btn sm" data-act="openVersion" data-k="' + (i + 1) + '">Просмотр</button></div>').join('') + '</div>' +
+        '<div class="card"><div class="card-h"><div class="h3">' + T.verFiles + '</div>' +
+          '<div class="grow"></div><span class="badge b-neutral">XLS · ' + T.verActual + ' v' + v + '</span></div><div class="card-b">' +
+          verFiles(r) +
         '</div></div>' +
       '</div></div>';
+  }
+  /* D-4: история версий КП — дата, автор, сумма, метка «Актуальная», просмотр */
+  function quoteVers(r) {
+    const q = r.quote || {};
+    const v = q.version || 1;
+    const cur = { n: v, at: q.sentAt || U.dt(r.updatedAt), by: (q.by || 'Клочко Н.'), sum: (q.totalRub !== undefined ? q.totalRub : DB.totals(r).total) };
+    const prev = (q.history || []).slice().sort((a, b) => b.n - a.n);
+    return [cur].concat(prev);
+  }
+  function verFiles(r) {
+    const v = (r.quote && r.quote.version) || 1;
+    return '<div class="col" style="gap:8px">' + quoteVers(r).map(x =>
+      '<div class="row wrap" style="gap:10px;align-items:center">' +
+        '<b class="small">КП-2026-0' + (900 + r.number) + '-' + x.n + '</b>' +
+        '<span class="tiny muted">' + esc(T.verAuthor) + ': ' + esc(x.by) + ' · ' + esc(x.at) + '</span>' +
+        '<div class="grow"></div>' +
+        '<span class="mono small">' + U.money(x.sum) + '</span>' +
+        '<span class="badge ' + (x.n === v ? 'b-ok' : 'b-neutral') + '">' + esc(x.n === v ? T.verActual : T.verOf + ' ' + x.n) + '</span>' +
+        '<button class="btn sm" data-act="openVersion" data-k="' + x.n + '">' + esc(T.verView) + '</button>' +
+      '</div>').join('') + '</div>';
   }
   function field(label, key, val) {
     return '<div class="field"><label>' + esc(label) + '</label>' +
@@ -2917,6 +2943,8 @@ window.MOCK = (function () {
   D('reqArticle', k => { const [id, pid] = k.split('|'); reqArticleDialog(id, pid); });
   D('reqArticleAll', id => { const r = DB.req(id) || curReq(); if (r) reqArticleDialog(r.id, null); });
   D('reqPrice', k => { const [id, pid] = k.split('|'); reqPriceDialog(id, pid); });
+  /* D-3: рабочая кнопка «Найти цену у поставщика» в строке без цены */
+  D('findprice', k => { const [id, pid] = String(k).split('|'); reqPriceDialog(id, pid); });
   D('reqAllPrices', id => { const r = DB.req(id) || curReq(); reqPriceDialog(r.id, null); });
   D('sendArticleReq', () => {
     const r = curReq(); const body = (document.getElementById('arBody') || {}).value || '';
@@ -3891,6 +3919,7 @@ window.MOCK = (function () {
         [['data', T.stateData], ['loading', T.stateLoading], ['empty', T.stateEmpty], ['error', T.stateError]].map(o =>
           '<option value="' + o[0] + '"' + (U.mock() === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') +
       '</select>' +
+      '<button class="ibtn" data-act="themeToggle" aria-label="' + esc(T.theme) + '" title="' + esc(T.theme) + '">' + icon(U.S.theme === 'dark' ? 'sun' : 'moon') + '</button>' +
       '<button class="btn sm hide-sm" data-act="aiChat" data-k="top">' + icon('sparkles', 'ic-sm') + ' ИИ</button>' +
       '<button class="ibtn" data-act="noti" aria-label="Уведомления">' + icon('bell') +
         (c.unread ? '<span class="dot"></span>' : '') + '</button>' +
