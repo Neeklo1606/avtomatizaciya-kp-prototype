@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<title>Автоматизация КП — рабочий прототип</title>
+<title>Автоматизация КП — система управления закупками и КП</title>
 <meta name="description" content="Кликабельный прототип системы автоматизации коммерческих предложений: почта, распознавание артикулов, цены из прайсов, расчёт с пошлиной, КП в XLS, поставщики, спецификации, аналитика и рассылка.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -597,7 +597,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:3px;padding:0 2px
   --card:rgba(255,255,255,.72); --card-solid:#fff;
   --side-w:264px; --side-w-collapsed:76px;
 
-  --ink:#121212; --ink-2:#3A3A38; --muted:#6A6963;
+  --ink:#121212; --ink-2:#3A3A38; --muted:#63625C;
 
   --line:rgba(18,18,18,.08); --line-2:rgba(18,18,18,.16); --line-strong:rgba(18,18,18,.24);
 
@@ -606,7 +606,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:3px;padding:0 2px
 
   --yellow:#FFE45C; --sky:#5CC3F7; --sand:#D9CD92; --orchid:#E47EE8; --mint:#9FE3B5; --coral:#FF8A7A;
   /* текст/иконки на пастельных плашках — всегда тёмный, независимо от темы */
-  --on-pastel:#121212;
+  --on-pastel:#121212; --on-accent:#FFFFFF;
 
   /* семантика: глубокий насыщенный тон для текста/иконок + пастель для фона */
   --ok:#1F6B43;   --ok-bg:#9FE3B5;
@@ -623,7 +623,7 @@ mark{background:var(--accent-soft);color:inherit;border-radius:3px;padding:0 2px
   --maxw:1440px;
 }
 
-[data-theme=dark]{
+[data-theme=dark]{ --on-accent:#121212;
   --bg:#141414; --surface:#1D1D1D; --surface-2:#232323; --surface-3:#2A2A2A;
   --card:rgba(38,38,38,.72); --card-solid:#262626;
 
@@ -698,7 +698,9 @@ body{
   border-radius:var(--r-pill);
 }
 .nav-i.on .cnt{background:rgba(255,255,255,.24);color:var(--bg)}
-[data-theme=dark] .nav-i.on .cnt{background:rgba(0,0,0,.24);color:var(--ink)}
+/* активный пункт меню инвертируется (фон = --ink), поэтому текст счётчика
+   должен быть цветом фона страницы, а не --ink — иначе 1.77:1 в тёмной теме */
+[data-theme=dark] .nav-i.on .cnt{background:rgba(0,0,0,.24);color:var(--bg)}
 .side-foot{
   padding:16px 18px 20px;border-top:1px solid var(--line);
   font-size:12px;color:var(--muted);letter-spacing:.005em;line-height:1.5;
@@ -832,7 +834,7 @@ body{
 .b-warn{background:var(--warn-bg);color:#5C4A08}
 .b-info{background:var(--info-bg);color:#0E3A52}
 .b-ok{background:var(--ok-bg);color:#12492A}
-.b-bad{background:var(--bad-bg);color:#7A2A1C}
+.b-bad{background:var(--bad-bg);color:#702619}
 .b-neutral{background:var(--neutral-bg);color:var(--ink-2)}
 [data-theme=dark] .b-warn{color:#FBEFC0}
 [data-theme=dark] .b-info{color:#D3ECF7}
@@ -1360,7 +1362,8 @@ table.tbl tbody tr.exp{background:var(--surface-2)}
   font-size:11px;line-height:1.35;padding:5px 7px;border-radius:8px;
   background:var(--surface-2);color:var(--ink-2);
   border-left:2px solid var(--line-strong);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;
+  overflow:hidden;max-width:100%;white-space:normal;overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
 }
 .cal-ev.warn{border-left-color:var(--warn);background:color-mix(in srgb,var(--warn-bg) 30%,var(--card-solid))}
 .cal-ev.bad{border-left-color:var(--bad);background:color-mix(in srgb,var(--bad-bg) 30%,var(--card-solid))}
@@ -1396,6 +1399,136 @@ table.tbl tbody tr.exp{background:var(--surface-2)}
 @media (max-width:520px){
   .stat.link .tiny{flex-wrap:wrap;gap:4px}
 }
+
+/* Доступность и удобство нажатия: тап-зона не меньше 32px, фокус всегда виден */
+#app button, #app a.btn, #app .pg, #app .ibtn{min-height:32px}
+#app .btn.sm{min-height:30px}
+.side .nav-i, .side .collapser{min-height:36px}
+#app :focus-visible, .side :focus-visible, .top :focus-visible{
+  outline:2px solid var(--ink); outline-offset:2px; border-radius:10px;
+}
+/* Уважаем системную настройку «меньше движения» */
+@media (prefers-reduced-motion: reduce){
+  #app *, .side *, .top *{animation-duration:.01ms !important;animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;scroll-behavior:auto !important}
+}
+
+/* Узкие служебные кнопки доведены до удобной тап-зоны 32px */
+.ibtn.collapser, .ibtn.side-x{min-width:32px}
+#app .lnk.tgl, #app .row .lnk{min-width:32px;justify-content:center}
+#app .pg{min-width:32px;justify-content:center}
+/* Счётчик позиций в таблице — удобная тап-зона и явный индикатор раскрытия */
+table.tbl .lnk[data-act="toggleRow"]{
+  min-width:44px;min-height:32px;padding:0 8px;justify-content:center;
+  display:inline-flex;align-items:center;border-radius:10px;border:1px solid var(--line);
+  text-decoration:none;font-variant-numeric:tabular-nums;
+}
+table.tbl .lnk[data-act="toggleRow"]:hover{border-color:var(--ink);opacity:1;background:var(--surface-2)}
+
+/* ============================================================
+   Секция 21. Премиальная полировка: воздух, глубина, акценты
+   Принцип: меньше рамок — больше подложек и пространства.
+   ============================================================ */
+
+/* 21.1 Таблицы: больше воздуха, лёгкая шапка, читаемая иерархия */
+table.tbl th{
+  font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);padding:16px 18px;
+  background:transparent;backdrop-filter:none;
+  border-bottom:1px solid var(--line-strong);
+}
+table.tbl td{padding:18px 18px;font-size:14px}
+table.tbl tbody tr:hover{background:color-mix(in srgb,var(--ink) 3.5%,transparent)}
+table.tbl td:first-child,table.tbl th:first-child{padding-left:24px}
+table.tbl td:last-child,table.tbl th:last-child{padding-right:24px}
+/* числовые колонки выровнены, аккуратные засечки */
+table.tbl td.money{font-weight:650;letter-spacing:-.01em}
+/* вторичный текст (домен, подпись) — отдельный ритм, не шум */
+table.tbl .sub,table.tbl td .tiny{font-size:12px;line-height:1.4}
+
+/* 21.2 Фильтры: меньше клеток, мягкие подложки вместо рамок */
+.filters{gap:8px;padding:14px 24px;border-bottom:1px solid var(--line)}
+.filters .sel,.filters .inp,.filters .chip{
+  border-color:transparent;background:var(--surface-2);
+  border-radius:var(--r-pill);padding:0 14px;min-height:38px;font-size:13px;
+  transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease);
+}
+.filters .sel:hover,.filters .inp:hover,.filters .chip:hover{background:var(--surface-3)}
+.filters .sel:focus,.filters .inp:focus,.filters .chip:focus{border-color:var(--ink);background:var(--card-solid)}
+/* активный чип-фильтр — явный, но не кричащий */
+.filters .chip.on{background:var(--ink);color:var(--on-accent);border-color:transparent}
+
+/* 21.3 Бейджи статусов: пастель + точка, читаемый вес */
+.badge{
+  font-size:11.5px;font-weight:600;letter-spacing:.005em;
+  padding:5px 11px 5px 10px;gap:6px;border:0;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 14%,transparent);
+}
+.badge .bd{width:6px;height:6px}
+
+/* 21.4 Карточки: глубина через двойную тень, а не жирную рамку */
+.card{
+  border-color:var(--line);
+  box-shadow:0 1px 2px rgba(18,18,18,.04),0 8px 24px -12px rgba(18,18,18,.10);
+}
+.card:hover{border-color:var(--line-strong)}
+[data-theme=dark] .card{box-shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px -14px rgba(0,0,0,.5)}
+.tw{box-shadow:0 1px 2px rgba(18,18,18,.04),0 12px 32px -16px rgba(18,18,18,.12)}
+[data-theme=dark] .tw{box-shadow:0 1px 2px rgba(0,0,0,.3),0 14px 36px -16px rgba(0,0,0,.55)}
+
+/* 21.5 Заголовки: плотнее трекинг, выверенная иерархия */
+.h1{letter-spacing:-.03em;font-weight:650}
+.h2{letter-spacing:-.025em;font-weight:650}
+.h3{letter-spacing:-.02em;font-weight:600}
+/* подзаголовок экрана не спорит с заголовком */
+.content > .h1 + .muted, .head .muted{font-size:13px;color:var(--muted)}
+
+/* 21.6 Кнопки: спокойный премиальный вес, явный фокус */
+.btn{font-weight:550;letter-spacing:-.005em}
+.btn.primary{box-shadow:0 1px 2px rgba(18,18,18,.16),0 6px 16px -8px rgba(18,18,18,.35)}
+.btn.primary:hover{transform:translateY(-1px)}
+.btn.ghost:hover{background:var(--surface-2)}
+
+/* 21.7 Статистика: цифры крупнее, подпись тише */
+.stat .v{font-size:34px;font-weight:650;letter-spacing:-.035em}
+.stat .k{font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;font-weight:600}
+
+/* 21.8 Навигация: активный пункт — подложка + точный вес */
+.side .nav-i{border-radius:12px}
+.side .nav-i.on{font-weight:600}
+.side .nav-i.on .lbl{font-weight:600}
+@media (max-width:860px){
+  table.tbl td{padding:14px}
+  table.tbl th{padding:12px 14px}
+}
+
+/* 21.9 Таблица: чёткая структура строк — разделители и баланс отступов */
+table.tbl td{
+  padding:16px 18px;
+  border-bottom:1px solid var(--line);
+  vertical-align:top;
+}
+table.tbl tbody tr:last-child td{border-bottom:0}
+/* «рыхлость» лечим зеброй при наведении, а не жирными линиями */
+table.tbl tbody tr:nth-child(even){background:color-mix(in srgb,var(--ink) 1.6%,transparent)}
+table.tbl tbody tr:nth-child(even):hover{background:color-mix(in srgb,var(--ink) 4%,transparent)}
+/* клиент: имя — акцент, домен — тише */
+table.tbl td .client-name, table.tbl td .small[style*="font-weight"]{font-weight:600;letter-spacing:-.005em}
+table.tbl td .muted{color:var(--muted)}
+
+/* 21.10 Подсказка в тулбаре — интегрирована, а не «заплатка» */
+.fhint{
+  display:flex;align-items:center;gap:8px;
+  background:var(--surface-2);border:0;border-radius:var(--r-nest);
+  padding:10px 14px;font-size:12.5px;color:var(--ink-2);
+}
+.fhint svg{color:var(--muted);flex:0 0 auto}
+/* строка вторичной подсказки в фильтрах — тот же язык */
+.toolbar .tiny.muted, .filters + .tiny{color:var(--muted)}
+
+/* 21.11 Иконки: одинаковая толщина и размер во всех панелях */
+.btn svg, .filters svg, .toolbar svg{stroke-width:1.7}
+table.tbl th svg{display:none}
 #boot{position:fixed;inset:0;z-index:9999;font:15px/1.5 Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
 color:#E8E6DF;background:#14171A;display:grid;place-items:center;margin:0;text-align:center}
 #boot b{display:block;font-size:22px;letter-spacing:-.02em;margin-bottom:8px}
@@ -1829,6 +1962,13 @@ window.MOCK = (function () {
     return p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
   }
   function dOnly(iso) { return dt(iso).split(' ')[0]; }
+  /* Короткое имя клиента для плотных мест (календарь, чипы): берём название в «ёлочках» */
+  function shortName(full) {
+    const t = String(full || '');
+    const m = t.match(/[«"]([^»"]+)[»"]/);
+    if (m) return m[1];
+    return t.length > 34 ? t.slice(0, 33) + '…' : t;
+  }
   const esc = s => String(s === undefined || s === null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -2335,6 +2475,8 @@ window.MOCK = (function () {
 
   function render(force) {
     const r = S.authed ? cur() : 'login';
+    /* маршрут — источник истины из адреса, чтобы прямые ссылки и «назад» работали */
+    if (S.authed) S.route = r;
     const t = Date.now();
     if (!force && t - lastRender < 40) return;
     lastRender = t;
@@ -2349,7 +2491,59 @@ window.MOCK = (function () {
     view.querySelector('.content') && view.querySelector('.content').scrollIntoView({ block: 'start' });
     window.scrollTo({ top: 0, behavior: 'auto' });
     reveal(view);
+    syncNavActive(r);
+    a11yPolish(view);
     if (window.__afterRender) window.__afterRender(r);
+  }
+
+  /* Подсветка активного пункта меню строго по текущему маршруту */
+  function syncNavActive(route) {
+    const nav = document.querySelector('.side .nav');
+    if (!nav) return;
+    nav.querySelectorAll('.nav-i').forEach(el => {
+      const on = el.getAttribute('data-k') === route;
+      el.classList.toggle('on', on);
+      if (on) el.setAttribute('aria-current', 'page');
+      else el.removeAttribute('aria-current');
+    });
+  }
+
+  /* Доступность: подписи для кнопок-иконок + читаемая навигация */
+  const ACT_LABEL = {
+    openReq:'Открыть запрос', openClient:'Открыть клиента', openSupplier:'Открыть поставщика',
+    sortDir:'Изменить порядок сортировки', pager:'Страница списка', aiSend:'Отправить вопрос ИИ',
+    aiChat:'Спросить ИИ', closeReq:'Закрыть запрос', searchClear:'Очистить поиск',
+    calPrev:'Предыдущий месяц', calNext:'Следующий месяц', calToday:'Перейти к сегодня',
+    calDay:'Показать сроки дня', collapse:'Свернуть панель', theme:'Сменить тему',
+    notif:'Уведомления', profile:'Профиль', close:'Закрыть', exportXls:'Выгрузить в Excel',
+    expand:'Развернуть', drag:'Перетащить', more:'Ещё действия'
+  };
+  function a11yPolish(view) {
+    if (!view) return;
+    view.querySelectorAll('button, a[href], [role="button"]').forEach(el => {
+      const txt = (el.textContent || '').trim();
+      const has = (el.getAttribute('aria-label') || '').trim();
+      if (txt.length === 0 && !has) {
+        const act = el.getAttribute('data-act') || '';
+        const ttl = (el.getAttribute('title') || '').trim();
+        el.setAttribute('aria-label', ttl || ACT_LABEL[act] || T.moreActions || 'Действие');
+      }
+      if (el.tagName === 'BUTTON' && !el.getAttribute('type')) el.setAttribute('type', 'button');
+    });
+    /* активный пункт меню помечаем для скринридера */
+    view.querySelectorAll('.nav-i').forEach(el => {
+      if (el.classList.contains('on')) el.setAttribute('aria-current', 'page');
+      else el.removeAttribute('aria-current');
+    });
+    /* иконки внутри кнопок не должны попадать в поток чтения */
+    view.querySelectorAll('button svg, a svg').forEach(sv => sv.setAttribute('aria-hidden', 'true'));
+    /* таблицы получают заголовок по имени экрана */
+    view.querySelectorAll('table').forEach(tb => {
+      if (!tb.getAttribute('aria-label')) {
+        const h = view.querySelector('.h1, .h2, .h3');
+        tb.setAttribute('aria-label', (h ? h.textContent.trim() : '') || 'Таблица данных');
+      }
+    });
   }
   const shell = {
     accessDenied(route) {
@@ -2372,7 +2566,7 @@ window.MOCK = (function () {
     go: go, cur: cur, render: render, RENDERERS: RENDERERS, ROUTES: ROUTES, roleCan: roleCan,
     toast: toast, undoToast: undoToast, openOverlay: openOverlay, closeOverlay: closeOverlay,
     overlay: overlay, isOpen: isOpen, togglePanel: togglePanel, reveal: reveal,
-    money: money, money2: money2, num: num, dt: dt, dOnly: dOnly, esc: esc,
+    money: money, money2: money2, num: num, dt: dt, dOnly: dOnly, shortName: shortName, esc: esc,
     conf: conf, confBadge: confBadge, statusBadge: statusBadge, toneCls: toneCls,
     exportXls: exportXls, AI: AI, shell: shell, closeSearch: closeSearch,
     mock: () => MOCKSTATE, setMock: setMock
@@ -2553,7 +2747,7 @@ window.MOCK = (function () {
     const C = [
       ['number','№'],['receivedAt','Дата'],['client','Клиент'],['subject','Тема'],['positionsCount','Позиций'],
       ['minConfidence','Уверенность'],['quoteTotalRub','Сумма КП'],['status','Статус'],['assignee','Ответственный'],['updatedAt','Обновлено']
-    ].filter(c => f.cols[c[0]]).map(c => [c[0], (CICON[c[0]] ? icon(CICON[c[0]], 'ic-sm') + ' ' : '') + c[1]]);
+    ].filter(c => f.cols[c[0]]).map(c => [c[0], c[1]]);
 
     const afc = activeFilterCount(f);
     return '<div class="content">' +
@@ -3373,7 +3567,7 @@ window.MOCK = (function () {
       const d = parseInt(m[2], 10);
       const waiting = r.status === 'waiting_supplier';
       push(d, {
-        txt: (r.client.name || '') + ' · № 2026-' + r.number,
+        txt: U.shortName(r.client.name),
         tone: waiting ? 'bad' : (r.minConfidence < 0.7 ? 'warn' : 'info'),
         id: r.id,
         label: waiting ? T.overdue : 'в срок'
@@ -3714,7 +3908,7 @@ window.MOCK = (function () {
           return '<div class="row grow" style="gap:8px">' +
             '<button class="row grow" data-act="specStep" data-k="' + n + '" style="gap:9px;justify-content:flex-start;min-height:44px">' +
             '<span style="width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;' +
-            (on ? 'background:var(--accent);color:#fff' : done ? 'background:var(--ok-bg);color:var(--ok)' : 'background:var(--surface-3);color:var(--muted)') + '">' +
+            (on ? 'background:var(--accent);color:var(--on-accent)' : done ? 'background:var(--ok-bg);color:var(--ok)' : 'background:var(--surface-3);color:var(--muted)') + '">' +
             (done ? icon('check', 'ic-sm') : n) + '</span>' +
             '<span class="' + (on ? 'h3' : 'small') + (on ? '' : ' muted') + '">' + esc(s) + '</span></button>' +
             (i < steps.length - 1 ? '<span style="width:100%;max-width:60px;height:1px;background:var(--line-2);align-self:center"></span>' : '') +

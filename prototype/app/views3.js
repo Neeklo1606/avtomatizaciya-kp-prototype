@@ -21,7 +21,7 @@
           return '<div class="row grow" style="gap:8px">' +
             '<button class="row grow" data-act="specStep" data-k="' + n + '" style="gap:9px;justify-content:flex-start;min-height:44px">' +
             '<span style="width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;' +
-            (on ? 'background:var(--accent);color:#fff' : done ? 'background:var(--ok-bg);color:var(--ok)' : 'background:var(--surface-3);color:var(--muted)') + '">' +
+            (on ? 'background:var(--accent);color:var(--on-accent)' : done ? 'background:var(--ok-bg);color:var(--ok)' : 'background:var(--surface-3);color:var(--muted)') + '">' +
             (done ? icon('check', 'ic-sm') : n) + '</span>' +
             '<span class="' + (on ? 'h3' : 'small') + (on ? '' : ' muted') + '">' + esc(s) + '</span></button>' +
             (i < steps.length - 1 ? '<span style="width:100%;max-width:60px;height:1px;background:var(--line-2);align-self:center"></span>' : '') +

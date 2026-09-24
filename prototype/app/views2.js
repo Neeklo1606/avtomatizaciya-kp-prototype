@@ -160,7 +160,7 @@
       const d = parseInt(m[2], 10);
       const waiting = r.status === 'waiting_supplier';
       push(d, {
-        txt: (r.client.name || '') + ' · № 2026-' + r.number,
+        txt: U.shortName(r.client.name),
         tone: waiting ? 'bad' : (r.minConfidence < 0.7 ? 'warn' : 'info'),
         id: r.id,
         label: waiting ? T.overdue : 'в срок'

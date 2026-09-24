@@ -171,7 +171,7 @@
     const C = [
       ['number','№'],['receivedAt','Дата'],['client','Клиент'],['subject','Тема'],['positionsCount','Позиций'],
       ['minConfidence','Уверенность'],['quoteTotalRub','Сумма КП'],['status','Статус'],['assignee','Ответственный'],['updatedAt','Обновлено']
-    ].filter(c => f.cols[c[0]]).map(c => [c[0], (CICON[c[0]] ? icon(CICON[c[0]], 'ic-sm') + ' ' : '') + c[1]]);
+    ].filter(c => f.cols[c[0]]).map(c => [c[0], c[1]]);
 
     const afc = activeFilterCount(f);
     return '<div class="content">' +

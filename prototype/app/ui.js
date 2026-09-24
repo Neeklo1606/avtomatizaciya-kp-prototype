@@ -216,6 +216,13 @@
     return p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
   }
   function dOnly(iso) { return dt(iso).split(' ')[0]; }
+  /* Короткое имя клиента для плотных мест (календарь, чипы): берём название в «ёлочках» */
+  function shortName(full) {
+    const t = String(full || '');
+    const m = t.match(/[«"]([^»"]+)[»"]/);
+    if (m) return m[1];
+    return t.length > 34 ? t.slice(0, 33) + '…' : t;
+  }
   const esc = s => String(s === undefined || s === null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -722,6 +729,8 @@
 
   function render(force) {
     const r = S.authed ? cur() : 'login';
+    /* маршрут — источник истины из адреса, чтобы прямые ссылки и «назад» работали */
+    if (S.authed) S.route = r;
     const t = Date.now();
     if (!force && t - lastRender < 40) return;
     lastRender = t;
@@ -736,7 +745,59 @@
     view.querySelector('.content') && view.querySelector('.content').scrollIntoView({ block: 'start' });
     window.scrollTo({ top: 0, behavior: 'auto' });
     reveal(view);
+    syncNavActive(r);
+    a11yPolish(view);
     if (window.__afterRender) window.__afterRender(r);
+  }
+
+  /* Подсветка активного пункта меню строго по текущему маршруту */
+  function syncNavActive(route) {
+    const nav = document.querySelector('.side .nav');
+    if (!nav) return;
+    nav.querySelectorAll('.nav-i').forEach(el => {
+      const on = el.getAttribute('data-k') === route;
+      el.classList.toggle('on', on);
+      if (on) el.setAttribute('aria-current', 'page');
+      else el.removeAttribute('aria-current');
+    });
+  }
+
+  /* Доступность: подписи для кнопок-иконок + читаемая навигация */
+  const ACT_LABEL = {
+    openReq:'Открыть запрос', openClient:'Открыть клиента', openSupplier:'Открыть поставщика',
+    sortDir:'Изменить порядок сортировки', pager:'Страница списка', aiSend:'Отправить вопрос ИИ',
+    aiChat:'Спросить ИИ', closeReq:'Закрыть запрос', searchClear:'Очистить поиск',
+    calPrev:'Предыдущий месяц', calNext:'Следующий месяц', calToday:'Перейти к сегодня',
+    calDay:'Показать сроки дня', collapse:'Свернуть панель', theme:'Сменить тему',
+    notif:'Уведомления', profile:'Профиль', close:'Закрыть', exportXls:'Выгрузить в Excel',
+    expand:'Развернуть', drag:'Перетащить', more:'Ещё действия'
+  };
+  function a11yPolish(view) {
+    if (!view) return;
+    view.querySelectorAll('button, a[href], [role="button"]').forEach(el => {
+      const txt = (el.textContent || '').trim();
+      const has = (el.getAttribute('aria-label') || '').trim();
+      if (txt.length === 0 && !has) {
+        const act = el.getAttribute('data-act') || '';
+        const ttl = (el.getAttribute('title') || '').trim();
+        el.setAttribute('aria-label', ttl || ACT_LABEL[act] || T.moreActions || 'Действие');
+      }
+      if (el.tagName === 'BUTTON' && !el.getAttribute('type')) el.setAttribute('type', 'button');
+    });
+    /* активный пункт меню помечаем для скринридера */
+    view.querySelectorAll('.nav-i').forEach(el => {
+      if (el.classList.contains('on')) el.setAttribute('aria-current', 'page');
+      else el.removeAttribute('aria-current');
+    });
+    /* иконки внутри кнопок не должны попадать в поток чтения */
+    view.querySelectorAll('button svg, a svg').forEach(sv => sv.setAttribute('aria-hidden', 'true'));
+    /* таблицы получают заголовок по имени экрана */
+    view.querySelectorAll('table').forEach(tb => {
+      if (!tb.getAttribute('aria-label')) {
+        const h = view.querySelector('.h1, .h2, .h3');
+        tb.setAttribute('aria-label', (h ? h.textContent.trim() : '') || 'Таблица данных');
+      }
+    });
   }
   const shell = {
     accessDenied(route) {
@@ -759,7 +820,7 @@
     go: go, cur: cur, render: render, RENDERERS: RENDERERS, ROUTES: ROUTES, roleCan: roleCan,
     toast: toast, undoToast: undoToast, openOverlay: openOverlay, closeOverlay: closeOverlay,
     overlay: overlay, isOpen: isOpen, togglePanel: togglePanel, reveal: reveal,
-    money: money, money2: money2, num: num, dt: dt, dOnly: dOnly, esc: esc,
+    money: money, money2: money2, num: num, dt: dt, dOnly: dOnly, shortName: shortName, esc: esc,
     conf: conf, confBadge: confBadge, statusBadge: statusBadge, toneCls: toneCls,
     exportXls: exportXls, AI: AI, shell: shell, closeSearch: closeSearch,
     mock: () => MOCKSTATE, setMock: setMock
